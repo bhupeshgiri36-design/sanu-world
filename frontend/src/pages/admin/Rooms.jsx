@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Copy, CheckCircle2, XCircle, Users } from 'lucide-react';
+import { Copy, CheckCircle2, XCircle, Users, LogIn } from 'lucide-react';
 import { motion } from 'motion/react';
 import { API_ORIGIN } from '../../lib/config';
 
@@ -44,6 +44,14 @@ export default function Rooms() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleEnterRoom = (code) => {
+    // Admin identity comes from the admin_token cookie, not sessionStorage,
+    // so the socket join in ChatRoom will recognize this browser as host
+    // automatically — no need to pre-fill credentials here. If ChatRoom
+    // doesn't find a saved nickname for this code it'll just prompt for one.
+    navigate(`/room/${code}`);
   };
 
   const handleCopyLink = (code) => {
@@ -116,6 +124,13 @@ export default function Rooms() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button
+                      onClick={() => handleEnterRoom(room.code)}
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-pink-500/10 text-pink-400 hover:bg-pink-500/20 rounded-xl text-sm font-semibold transition-colors border border-pink-500/20"
+                    >
+                      <LogIn size={16} />
+                      Enter Room
+                    </button>
                     <button
                       onClick={() => handleCopyLink(room.code)}
                       className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 rounded-xl text-sm font-semibold transition-colors border border-zinc-700"
