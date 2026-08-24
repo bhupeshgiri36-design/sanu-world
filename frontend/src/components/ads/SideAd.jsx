@@ -1,9 +1,27 @@
 import React from 'react';
+import AdSlot from './AdSlot.jsx';
+import { adService } from '../../services/adService.js';
+import { useIsAdmin } from '../../context/AdminContext';
+
+const SNIPPET = import.meta.env.VITE_SIDE_AD_SNIPPET || '';
+const PROVIDER = import.meta.env.VITE_SIDE_AD_PROVIDER || 'adsterra';
 
 export default function SideAd() {
+  const isAdmin = useIsAdmin();
+  const hide = isAdmin !== false;
+
+  React.useEffect(() => {
+    if (SNIPPET && !hide) adService.recordImpression(PROVIDER, 'side');
+  }, [hide]);
+
+  if (hide) return null;
+
   return (
-    <div className="w-[300px] h-[600px] bg-[#1A1A1E] border border-zinc-800 rounded-xl flex items-center justify-center text-zinc-600 font-bold tracking-widest text-xs shadow-inner hidden xl:flex">
-      ADVERTISEMENT
-    </div>
+    <AdSlot
+      snippetHtml={SNIPPET}
+      width="300px"
+      height="600px"
+      className="hidden xl:flex"
+    />
   );
 }
