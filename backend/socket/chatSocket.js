@@ -55,8 +55,21 @@ export function setupSocketHandlers(io) {
   const lastMessageTimes = new Map();
 
   io.on('connection', (socket) => {
-    let currentRoom = null;
-    let currentUser = null;
+    // Room/user state for this socket lives on `socket.data` (Socket.IO's
+    // built-in per-socket data bag) instead of a plain closure variable.
+    // That's what makes the fix below possible: `respond-join-request`
+    // runs inside SANU's own connection closure, but needs to mark the
+    // REQUESTER's socket as joined once approved. A closure-local variable
+    // can only ever be written to from inside its own closure — there was
+    // no way for Sanu's handler to reach into a different socket's local
+    // `currentRoom`/`currentUser` and set them. `socket.data` on the other
+    // hand is a real, externally-writable property on the socket object,
+    // so `requesterSocket.data.currentRoom = ...` below actually works.
+    // This was the bug behind "Not connected to a room" right after Sanu
+    // approved someone: the approved friend's socket had never actually
+    // been marked as joined, even though their screen showed the chat.
+    socket.data.currentRoom = null;
+    socket.data.currentUser = null;
     // Set only while this socket is sitting in a room's approval queue
     // (i.e. it asked to join but Sanu hasn't approved/denied yet). Used to
     // clean the request up if they close the tab before getting an answer.
@@ -219,10 +232,10 @@ export function setupSocketHandlers(io) {
           return;
         }
 
-        currentRoom = code;
-        currentUser = { id: socket.id, nickname: trimmedNickname, isAdmin, isHost: isAdmin, clientId };
+        socket.data.currentRoom = code;
+        socket.data.currentUser = { id: socket.id, nickname: trimmedNickname, isAdmin, isHost: isAdmin, clientId };
 
-        room.members.set(socket.id, currentUser);
+        room.members.set(socket.id, socket.data.currentUser);
         room.emptySince = undefined;
 
         socket.join(code);
@@ -244,9 +257,9 @@ export function setupSocketHandlers(io) {
         }
 
         if (isReconnecting) {
-          io.to(code).emit('user-reconnected', currentUser);
+          io.to(code).emit('user-reconnected', socket.data.currentUser);
         } else {
-          socket.to(code).emit('user-joined', currentUser);
+          socket.to(code).emit('user-joined', socket.data.currentUser);
         }
         io.to(code).emit('online-count', room.members.size);
 
@@ -262,18 +275,18 @@ export function setupSocketHandlers(io) {
 
     // Sanu approves or denies someone waiting in the room's approval queue.
     on('respond-join-request', async ({ requestId, approve } = {}, callback) => {
-      if (!currentRoom || !currentUser?.isAdmin) {
+      if (!socket.data.currentRoom || !socket.data.currentUser?.isAdmin) {
         if (callback) callback({ error: 'Only Sanu can respond to join requests.' });
         return;
       }
 
-      const room = await roomService.getRoomByCode(currentRoom);
+      const room = await roomService.getRoomByCode(socket.data.currentRoom);
       if (!room) {
         if (callback) callback({ error: 'This request is no longer active.' });
         return;
       }
 
-      await withRoomLock(currentRoom, async () => {
+      await withRoomLock(socket.data.currentRoom, async () => {
         const request = room.pendingJoinRequests?.get(requestId);
         if (!request) {
           if (callback) callback({ error: 'This request is no longer active.' });
@@ -304,7 +317,17 @@ export function setupSocketHandlers(io) {
         const newUser = { id: request.socketId, nickname: request.nickname, isAdmin: false, isHost: false, clientId: request.clientId };
         room.members.set(request.socketId, newUser);
         room.emptySince = undefined;
-        requesterSocket.join(currentRoom);
+        requesterSocket.join(socket.data.currentRoom);
+
+        // THE FIX: mark the requester's OWN socket as joined. Without
+        // this, they were added to `room.members` and their screen showed
+        // the chat, but their socket's own currentRoom/currentUser stayed
+        // empty — so their very first send-message hit the
+        // "!currentRoom || !currentUser" guard and failed with "Not
+        // connected to a room", every single time, until a reload/reconnect
+        // happened to run the normal join-room path (which does set this).
+        requesterSocket.data.currentRoom = socket.data.currentRoom;
+        requesterSocket.data.currentUser = newUser;
 
         requesterSocket.emit('join-approved', {
           room: {
@@ -318,8 +341,8 @@ export function setupSocketHandlers(io) {
           isAdmin: false
         });
 
-        io.to(currentRoom).emit('user-joined', newUser);
-        io.to(currentRoom).emit('online-count', room.members.size);
+        io.to(socket.data.currentRoom).emit('user-joined', newUser);
+        io.to(socket.data.currentRoom).emit('online-count', room.members.size);
 
         if (callback) callback({ success: true });
       });
@@ -333,12 +356,12 @@ export function setupSocketHandlers(io) {
     //    video (or even a decent-sized photo) as base64 over the socket
     //    isn't workable.
     on('send-message', async (messageData, callback) => {
-      if (!currentRoom || !currentUser) {
+      if (!socket.data.currentRoom || !socket.data.currentUser) {
         if (callback) callback({ error: 'Not connected to a room' });
         return;
       }
 
-      const room = await roomService.getRoomByCode(currentRoom);
+      const room = await roomService.getRoomByCode(socket.data.currentRoom);
       if (!room) {
         if (callback) callback({ error: 'Room no longer exists' });
         return;
@@ -397,17 +420,17 @@ export function setupSocketHandlers(io) {
       lastMessageTimes.set(socket.id, now);
 
       // The message is always attributed to whoever's socket actually sent
-      // it (currentUser, resolved from THIS connection) — never to Sanu just
+      // it (socket.data.currentUser, resolved from THIS connection) — never to Sanu just
       // because Sanu happens to be the admin. A friend's uploaded photo
       // stays the friend's message.
       const message = {
         id: Math.random().toString(36).substr(2, 9),
-        userId: currentUser.id,
-        nickname: currentUser.nickname,
+        userId: socket.data.currentUser.id,
+        nickname: socket.data.currentUser.nickname,
         text,
         type,
         timestamp: Date.now(),
-        isAdmin: currentUser.isAdmin
+        isAdmin: socket.data.currentUser.isAdmin
       };
 
       if (room.messages.length >= 100) {
@@ -416,22 +439,22 @@ export function setupSocketHandlers(io) {
       room.messages.push(message);
 
       // Sender stops "typing" the moment a message actually lands.
-      socket.to(currentRoom).emit('user-stopped-typing', { userId: currentUser.id });
+      socket.to(socket.data.currentRoom).emit('user-stopped-typing', { userId: socket.data.currentUser.id });
 
-      io.to(currentRoom).emit('receive-message', message);
+      io.to(socket.data.currentRoom).emit('receive-message', message);
       if (callback) callback({ success: true });
     });
 
     // Typing indicator. Purely ephemeral — never stored, just relayed to
     // everyone else in the room while the sender has text in the box.
     on('typing-start', () => {
-      if (!currentRoom || !currentUser) return;
-      socket.to(currentRoom).emit('user-typing', { userId: currentUser.id, nickname: currentUser.nickname });
+      if (!socket.data.currentRoom || !socket.data.currentUser) return;
+      socket.to(socket.data.currentRoom).emit('user-typing', { userId: socket.data.currentUser.id, nickname: socket.data.currentUser.nickname });
     });
 
     on('typing-stop', () => {
-      if (!currentRoom || !currentUser) return;
-      socket.to(currentRoom).emit('user-stopped-typing', { userId: currentUser.id });
+      if (!socket.data.currentRoom || !socket.data.currentUser) return;
+      socket.to(socket.data.currentRoom).emit('user-stopped-typing', { userId: socket.data.currentUser.id });
     });
 
     // Sanu picks a new track (full track object from search: id, title,
@@ -440,14 +463,14 @@ export function setupSocketHandlers(io) {
     // reach this — the search UI itself is admin-only on the frontend —
     // but we still gate it here since the client can't be trusted.
     on('set-music', async (track) => {
-      if (!currentRoom || !currentUser?.isAdmin || !track) return;
-      const room = await roomService.getRoomByCode(currentRoom);
+      if (!socket.data.currentRoom || !socket.data.currentUser?.isAdmin || !track) return;
+      const room = await roomService.getRoomByCode(socket.data.currentRoom);
       if (room) {
         // Don't force autoplay on either side — browsers block unsolicited
         // playback anyway. Sanu presses play explicitly (music-play below),
         // and that's what starts the synced clock.
         room.music = { ...track, playing: false, position: 0, timestamp: Date.now() };
-        io.to(currentRoom).emit('music-update', room.music);
+        io.to(socket.data.currentRoom).emit('music-update', room.music);
       }
     });
 
@@ -457,8 +480,8 @@ export function setupSocketHandlers(io) {
     // right now" — position + elapsed-since-timestamp while playing — and
     // stay in sync without a constant stream of updates.
     on('music-play', async ({ position } = {}) => {
-      if (!currentRoom || !currentUser?.isAdmin) return;
-      const room = await roomService.getRoomByCode(currentRoom);
+      if (!socket.data.currentRoom || !socket.data.currentUser?.isAdmin) return;
+      const room = await roomService.getRoomByCode(socket.data.currentRoom);
       if (room && room.music) {
         room.music = {
           ...room.music,
@@ -466,13 +489,13 @@ export function setupSocketHandlers(io) {
           position: Number.isFinite(position) ? position : (room.music.position || 0),
           timestamp: Date.now()
         };
-        io.to(currentRoom).emit('music-update', room.music);
+        io.to(socket.data.currentRoom).emit('music-update', room.music);
       }
     });
 
     on('music-pause', async ({ position } = {}) => {
-      if (!currentRoom || !currentUser?.isAdmin) return;
-      const room = await roomService.getRoomByCode(currentRoom);
+      if (!socket.data.currentRoom || !socket.data.currentUser?.isAdmin) return;
+      const room = await roomService.getRoomByCode(socket.data.currentRoom);
       if (room && room.music) {
         room.music = {
           ...room.music,
@@ -480,36 +503,36 @@ export function setupSocketHandlers(io) {
           position: Number.isFinite(position) ? position : (room.music.position || 0),
           timestamp: Date.now()
         };
-        io.to(currentRoom).emit('music-update', room.music);
+        io.to(socket.data.currentRoom).emit('music-update', room.music);
       }
     });
 
     on('music-seek', async ({ position } = {}) => {
-      if (!currentRoom || !currentUser?.isAdmin || !Number.isFinite(position)) return;
-      const room = await roomService.getRoomByCode(currentRoom);
+      if (!socket.data.currentRoom || !socket.data.currentUser?.isAdmin || !Number.isFinite(position)) return;
+      const room = await roomService.getRoomByCode(socket.data.currentRoom);
       if (room && room.music) {
         room.music = { ...room.music, position, timestamp: Date.now() };
-        io.to(currentRoom).emit('music-update', room.music);
+        io.to(socket.data.currentRoom).emit('music-update', room.music);
       }
     });
 
     // Kept for backwards compatibility with older clients.
     on('music-state', async (playing) => {
-      if (!currentRoom || !currentUser?.isAdmin) return;
-      const room = await roomService.getRoomByCode(currentRoom);
+      if (!socket.data.currentRoom || !socket.data.currentUser?.isAdmin) return;
+      const room = await roomService.getRoomByCode(socket.data.currentRoom);
       if (room && room.music) {
         room.music = { ...room.music, playing: !!playing, timestamp: Date.now() };
-        io.to(currentRoom).emit('music-update', room.music);
+        io.to(socket.data.currentRoom).emit('music-update', room.music);
       }
     });
 
     // Generic patch for future needs (track metadata, etc.)
     on('update-music', async (data) => {
-      if (!currentRoom || !currentUser?.isAdmin) return;
-      const room = await roomService.getRoomByCode(currentRoom);
+      if (!socket.data.currentRoom || !socket.data.currentUser?.isAdmin) return;
+      const room = await roomService.getRoomByCode(socket.data.currentRoom);
       if (room) {
         room.music = { ...room.music, ...data, timestamp: Date.now() };
-        io.to(currentRoom).emit('music-update', room.music);
+        io.to(socket.data.currentRoom).emit('music-update', room.music);
       }
     });
 
@@ -518,7 +541,7 @@ export function setupSocketHandlers(io) {
     // nickname is remembered as "kicked" so they can't rejoin via the same
     // link, while everyone else can still join normally.
     on('admin-kick-user', async ({ userId } = {}, callback) => {
-      if (!currentRoom || !currentUser?.isAdmin) {
+      if (!socket.data.currentRoom || !socket.data.currentUser?.isAdmin) {
         if (callback) callback({ error: 'Only Sanu can remove people from this room.' });
         return;
       }
@@ -527,13 +550,13 @@ export function setupSocketHandlers(io) {
         return;
       }
 
-      const room = await roomService.getRoomByCode(currentRoom);
+      const room = await roomService.getRoomByCode(socket.data.currentRoom);
       if (!room) {
         if (callback) callback({ error: 'Room not found' });
         return;
       }
 
-      await withRoomLock(currentRoom, async () => {
+      await withRoomLock(socket.data.currentRoom, async () => {
         const target = room.members.get(userId);
         if (!target) {
           if (callback) callback({ error: 'That person is no longer in the room' });
@@ -554,9 +577,9 @@ export function setupSocketHandlers(io) {
         room.members.delete(userId);
 
         io.to(userId).emit('kicked', { reason: 'Sanu removed you from this room.' });
-        io.to(currentRoom).emit('user-stopped-typing', { userId });
-        io.to(currentRoom).emit('user-kicked', { userId, nickname: target.nickname });
-        io.to(currentRoom).emit('online-count', room.members.size);
+        io.to(socket.data.currentRoom).emit('user-stopped-typing', { userId });
+        io.to(socket.data.currentRoom).emit('user-kicked', { userId, nickname: target.nickname });
+        io.to(socket.data.currentRoom).emit('online-count', room.members.size);
 
         const targetSocket = io.sockets.sockets.get(userId);
         if (targetSocket) {
@@ -564,7 +587,7 @@ export function setupSocketHandlers(io) {
           // already done here, so it doesn't also start a reconnect-grace
           // timer or emit duplicate departure events for them.
           targetSocket.data.kicked = true;
-          targetSocket.leave(currentRoom);
+          targetSocket.leave(socket.data.currentRoom);
           targetSocket.disconnect(true);
         }
 
@@ -577,22 +600,22 @@ export function setupSocketHandlers(io) {
     // immediate, not wait for a reconnect that isn't coming (they didn't
     // disconnect, they clicked a button).
     on('end-room', async (_data, callback) => {
-      if (!currentRoom || !currentUser) {
+      if (!socket.data.currentRoom || !socket.data.currentUser) {
         if (callback) callback({ error: 'Not connected to a room' });
         return;
       }
-      if (!currentUser.isAdmin) {
+      if (!socket.data.currentUser.isAdmin) {
         if (callback) callback({ error: 'Only Sanu can end this conversation.' });
         return;
       }
 
-      const room = await roomService.getRoomByCode(currentRoom);
+      const room = await roomService.getRoomByCode(socket.data.currentRoom);
       if (!room) {
         if (callback) callback({ error: 'Room not found' });
         return;
       }
 
-      await withRoomLock(currentRoom, async () => {
+      await withRoomLock(socket.data.currentRoom, async () => {
         // Cancel any stray grace-window timers so they don't fire later against
         // a room we're about to delete.
         if (room.pendingDisconnects) {
@@ -600,10 +623,10 @@ export function setupSocketHandlers(io) {
           room.pendingDisconnects.clear();
         }
 
-        io.to(currentRoom).emit('room-closed', { endedBy: 'sanu' });
-        io.in(currentRoom).socketsJoin('closed-room');
-        io.sockets.in(currentRoom).disconnectSockets(true);
-        await roomService.deleteRoom(currentRoom);
+        io.to(socket.data.currentRoom).emit('room-closed', { endedBy: 'sanu' });
+        io.in(socket.data.currentRoom).socketsJoin('closed-room');
+        io.sockets.in(socket.data.currentRoom).disconnectSockets(true);
+        await roomService.deleteRoom(socket.data.currentRoom);
 
         if (callback) callback({ success: true });
       });
@@ -613,16 +636,16 @@ export function setupSocketHandlers(io) {
     // this skips the grace window so the host isn't shown a false
     // "reconnecting..." indicator for someone who left on purpose.
     on('leave-room', async () => {
-      if (!currentRoom || !currentUser || currentUser.isAdmin) return;
+      if (!socket.data.currentRoom || !socket.data.currentUser || socket.data.currentUser.isAdmin) return;
 
-      const code = currentRoom;
-      const user = currentUser;
+      const code = socket.data.currentRoom;
+      const user = socket.data.currentUser;
 
       // Clear local state right away so the 'disconnect' handler below
       // (which fires right after socket.disconnect() on the client) treats
       // this as already-handled and does nothing further.
-      currentRoom = null;
-      currentUser = null;
+      socket.data.currentRoom = null;
+      socket.data.currentUser = null;
 
       await withRoomLock(code, async () => {
         const room = await roomService.getRoomByCode(code);
@@ -670,9 +693,9 @@ export function setupSocketHandlers(io) {
         return;
       }
 
-      if (currentRoom && currentUser) {
-        const code = currentRoom;
-        const user = currentUser;
+      if (socket.data.currentRoom && socket.data.currentUser) {
+        const code = socket.data.currentRoom;
+        const user = socket.data.currentUser;
 
         await withRoomLock(code, async () => {
           const room = await roomService.getRoomByCode(code);
