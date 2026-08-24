@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound } from 'lucide-react';
 import { motion } from 'motion/react';
+import { API_ORIGIN } from '../lib/config';
 
 export default function JoinRoom() {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ export default function JoinRoom() {
     try {
       setLoading(true);
       setError('');
-      const res = await fetch(`/api/rooms/${roomCode}`);
+      const res = await fetch(`${API_ORIGIN}/api/rooms/${roomCode}`);
       const data = await res.json();
       
       if (!res.ok) {
@@ -56,7 +57,7 @@ export default function JoinRoom() {
 
     try {
       if (requiresPassword) {
-        const res = await fetch(`/api/rooms/${code}/verify`, {
+        const res = await fetch(`${API_ORIGIN}/api/rooms/${code}/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ password }),
