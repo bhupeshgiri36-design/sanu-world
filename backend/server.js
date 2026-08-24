@@ -12,7 +12,7 @@ import roomRoutes from './routes/roomRoutes.js';
 import musicRoutes from './routes/musicRoutes.js'; 
 import { setupSocketHandlers } from './socket/chatSocket.js';
 import { roomService } from './services/roomService.js';
-
+import adRoutes from './routes/adRoutes.js';
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -47,6 +47,7 @@ async function startServer() {
   app.use('/api/admin', adminRoutes);
   app.use('/api/rooms', roomRoutes);
   app.use('/api/music', musicRoutes);
+  app.use('/api/ads', adRoutes);
 
   // ✅ FIXED: Serve built frontend static files from frontend/dist
   // This works in both development (if you've run 'npm run build' in frontend)
