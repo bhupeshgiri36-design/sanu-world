@@ -216,7 +216,7 @@ export default function ChatRoom() {
 
     const checkRoom = async () => {
       try {
-        const res = await adminFetch(`/api/rooms/${code}`);
+        const res = await adminFetch(`/rooms/${code}`);
         const data = await res.json();
 
         if (!res.ok) {
