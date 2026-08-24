@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, ArrowLeft } from 'lucide-react';
 import { motion } from 'motion/react';
+import { API_ORIGIN } from '../lib/config';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -16,8 +17,9 @@ export default function AdminLogin() {
     setLoading(true);
     
     try {
-      const res = await fetch('/api/admin/login', {
+      const res = await fetch(`${API_ORIGIN}/api/admin/login`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
@@ -75,7 +77,7 @@ export default function AdminLogin() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="sanu@example.com"
+                
                 className="w-full px-5 py-3.5 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:border-pink-500 text-white placeholder-zinc-600 transition-all shadow-inner"
               />
             </div>
