@@ -60,7 +60,7 @@ export default function Rooms() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_ORIGIN}/api/admin/rooms/create`, {
+      const res = await fetch(`${API_ORIGIN}/api/rooms/create`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
