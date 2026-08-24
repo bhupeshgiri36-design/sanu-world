@@ -216,14 +216,14 @@ export default function ChatRoom() {
 
     const checkRoom = async () => {
       try {
-        const res = await adminFetch(`/rooms/${code}`);
-        const data = await res.json();
-
-        if (!res.ok) {
-          setError(data.error || 'Room not found');
-          setJoinStep('error');
-          return;
-        }
+        // adminFetch already awaits response.json() internally and throws
+        // (with the server's error message) on a non-OK response — it
+        // returns the parsed data directly, not a Response object. Calling
+        // .json()/.ok on its return value here was the bug: it threw
+        // "res.json is not a function" on every load, which this catch
+        // block silently turned into a misleading "Failed to connect to
+        // server" for every room, healthy or not.
+        const data = await adminFetch(`/rooms/${code}`);
 
         setRoomInfo(data);
 
@@ -235,7 +235,7 @@ export default function ChatRoom() {
           setJoinStep('intro');
         }
       } catch (err) {
-        setError('Failed to connect to server');
+        setError(err.message || 'Failed to connect to server');
         setJoinStep('error');
       }
     };
