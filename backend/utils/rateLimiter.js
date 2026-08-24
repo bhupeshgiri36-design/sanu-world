@@ -4,29 +4,33 @@ export const createRateLimiter = (options = {}) => {
   const {
     windowMs = 60 * 1000,   // 1 minute window
     max = 20,               // max requests per window
-    message = 'Too many requests, please try again later.',
   } = options;
 
   const hits = new Map();
 
-  return (req, res, next) => {
-    const ip = getClientIp(req);
+  // Plain key -> {allowed, retryAfterMs} check. Callers (Express route
+  // middleware in rateLimitMiddleware.js, the Socket.IO connection guard
+  // in server.js, and the in-socket flood checks in chatSocket.js) all
+  // call this directly with an ip/socket-id string and handle the
+  // req/res/next side themselves — this function must NOT be an Express
+  // middleware itself.
+  return (key) => {
     const now = Date.now();
 
-    const record = hits.get(ip);
+    const record = hits.get(key);
 
     if (!record || now - record.start > windowMs) {
-      hits.set(ip, { start: now, count: 1 });
-      return next();
+      hits.set(key, { start: now, count: 1 });
+      return { allowed: true };
     }
 
     record.count += 1;
 
     if (record.count > max) {
-      return res.status(429).json({ error: message });
+      return { allowed: false, retryAfterMs: windowMs - (now - record.start) };
     }
 
-    next();
+    return { allowed: true };
   };
 };
 
