@@ -49,7 +49,7 @@ async function startServer() {
   const io = new Server(httpServer, {
     cors: corsOptions
   });
- 
+
   // A person opening/closing lots of connections (or a script hammering
   // the socket endpoint) shouldn't be able to do it unthrottled. This
   // blocks the connection at the handshake, before any room/join logic
@@ -64,7 +64,7 @@ async function startServer() {
     }
     next();
   });
- 
+
   // Inject io into request object for controllers to use
   app.use((req, res, next) => {
     req.io = io;
@@ -72,18 +72,18 @@ async function startServer() {
   });
   // Setup Socket.IO
   setupSocketHandlers(io);
- 
+
   // Simple health check — useful for confirming the service is actually
   // up (and not just that Render's own placeholder page is what's
   // answering) when debugging deploys.
   app.get('/healthz', (req, res) => res.json({ ok: true }));
- 
+
   // API Routes
   app.use('/api/admin', adminRoutes);
   app.use('/api/rooms', roomRoutes);
   app.use('/api/music', musicRoutes);
   app.use('/api/media', mediaRoutes);
- 
+
   // Anything under /api/* that didn't match a route above is a genuine
   // 404 — return JSON, not Express's default HTML "Cannot GET ..." page.
   // The frontend's adminFetch/fetch calls always expect JSON back; an
@@ -92,7 +92,7 @@ async function startServer() {
   app.use('/api', (req, res) => {
     res.status(404).json({ error: 'Not found' });
   });
- 
+
   // Vite Middleware for Development
   if (process.env.NODE_ENV !== 'production') {
     // Dynamic import — only reached (and only resolved) when NOT in
@@ -107,7 +107,7 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   }
- 
+
   // Global JSON error handler — MUST be registered after all routes.
   // Any error passed to next(err) (including everything wrapped in
   // asyncHandler) lands here instead of Express's default HTML error
@@ -124,7 +124,7 @@ async function startServer() {
         : (err.message || 'Internal server error')
     });
   });
- 
+
   // Room Cleanup Interval — wrapped so a transient error here just gets
   // logged and retried a minute later, instead of an unhandled promise
   // rejection potentially taking the whole process down.
@@ -145,19 +145,19 @@ async function startServer() {
       console.error('Room cleanup interval failed:', err);
     }
   }, 60 * 1000);
- 
+
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
   });
 }
- 
+
 // Catch anything that still slips through as a raw unhandled rejection
 // (e.g. inside socket handlers, which asyncHandler doesn't cover) so it's
 // logged instead of silently killing the process on some Node versions.
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled promise rejection:', err);
 });
- 
+
 startServer().catch((err) => {
   console.error('Fatal error during server startup:', err);
   process.exit(1);
