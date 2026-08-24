@@ -9,7 +9,7 @@ import TopAd from './ads/TopAd';
 import BottomAd from './ads/BottomAd';
 import MusicSearch from './music/MusicSearch';
 import MusicPlayer from './music/MusicPlayer';
-import { adminFetch, uploadMedia } from '../config/api';
+import { adminFetch, uploadMedia } from '../lib/api';
 import { useIsAdmin } from '../context/AdminContext';
 
 // How long after the last keystroke we tell the room "stopped typing" if no
