@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Users, MessageSquare } from 'lucide-react';
 import { motion } from 'motion/react';
+import { API_ORIGIN } from '../../lib/config';
 
 export default function Dashboard() {
   const [stats, setStats] = useState({ activeRooms: 0, totalOnline: 0, totalMessages: 0 });
 
   const fetchDashboardData = async () => {
     try {
-      const statsRes = await fetch('/api/admin/stats');
+      const statsRes = await fetch(`${API_ORIGIN}/api/admin/stats`, { credentials: 'include' });
       if (statsRes.ok) {
         const statsData = await statsRes.json();
         setStats(statsData);
