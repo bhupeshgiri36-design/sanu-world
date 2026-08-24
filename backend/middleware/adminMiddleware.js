@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
-
+ 
 const JWT_SECRET = process.env.JWT_SECRET || 'sanu-super-secret-key-2026';
-
+ 
 export const adminMiddleware = (req, res, next) => {
   const token = req.cookies.admin_token;
   if (!token) {
