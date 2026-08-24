@@ -6,110 +6,159 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
-
+// NOTE: `vite` is NOT imported at the top level anymore. It's a
+// devDependency, so it isn't installed when NODE_ENV=production (Render
+// skips devDependencies on `npm install` in that case). A static top-level
+// import runs immediately regardless of which branch uses it — that's what
+// crashed the server on boot ("Cannot find package 'vite'"). It's now
+// imported dynamically below, only inside the branch that needs it.
 import adminRoutes from './routes/adminRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
 import musicRoutes from './routes/musicRoutes.js'; 
+import mediaRoutes from './routes/mediaRoutes.js';
 import { setupSocketHandlers } from './socket/chatSocket.js';
 import { roomService } from './services/roomService.js';
-import adRoutes from './routes/adRoutes.js';
+import { createRateLimiter, getClientIp } from './utils/rateLimiter.js';
 dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT || 3001;
-
-  // ✅ Middleware
+  const PORT = process.env.PORT || 3000;
   app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
-  app.use(cors());
-
-  // ✅ HTTP Server with Socket.IO
+  // Sanu's admin identity is verified from the admin_token cookie inside
+  // the Socket.IO handshake (see socket/adminAuth.js). Browsers only
+  // attach cookies to a cross-origin request when the CORS response names
+  // the exact origin AND allows credentials — `origin: '*'` silently drops
+  // the cookie, which is why this must list real origins, not a wildcard.
+  const allowedOrigins = [
+    'https://sanu-world.onrender.com',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ];
+  const corsOptions = {
+    origin: allowedOrigins,
+    credentials: true
+  };
+  app.use(cors(corsOptions));
+  // Uploaded chat images/videos live on disk and are served directly —
+  // chat messages just carry the URL, not the file bytes.
+  app.use('/uploads', express.static(path.resolve(__dirname, 'uploads')));
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
-    cors: { origin: '*' }
+    cors: corsOptions
   });
 
-  // ✅ Inject io into request object for controllers to use
+  // A person opening/closing lots of connections (or a script hammering
+  // the socket endpoint) shouldn't be able to do it unthrottled. This
+  // blocks the connection at the handshake, before any room/join logic
+  // even runs — 30 new connections / minute per IP is generous for a
+  // browser tab reconnecting on a bad network, tight for a flood.
+  const checkConnectionRate = createRateLimiter({ windowMs: 60 * 1000, max: 30 });
+  io.use((socket, next) => {
+    const ip = getClientIp(socket.handshake);
+    const { allowed } = checkConnectionRate(ip);
+    if (!allowed) {
+      return next(new Error('Too many connections, please slow down.'));
+    }
+    next();
+  });
+
+  // Inject io into request object for controllers to use
   app.use((req, res, next) => {
     req.io = io;
     next();
   });
-
-  // ✅ Setup Socket.IO handlers
+  // Setup Socket.IO
   setupSocketHandlers(io);
 
-  // ✅ API Routes
+  // Simple health check — useful for confirming the service is actually
+  // up (and not just that Render's own placeholder page is what's
+  // answering) when debugging deploys.
+  app.get('/healthz', (req, res) => res.json({ ok: true }));
+
+  // API Routes
   app.use('/api/admin', adminRoutes);
   app.use('/api/rooms', roomRoutes);
   app.use('/api/music', musicRoutes);
-  app.use('/api/ads', adRoutes);
+  app.use('/api/media', mediaRoutes);
 
-  // ✅ FIXED: Serve built frontend static files from frontend/dist
-  // This works in both development (if you've run 'npm run build' in frontend)
-  // and production (where the build happens before deployment)
-  const distPath = path.resolve(__dirname, '../frontend/dist');
-  app.use(express.static(distPath));
-
-  // ✅ SPA Fallback: Send index.html for all unmatched routes
-  // This allows React Router to handle client-side routing
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
+  // Anything under /api/* that didn't match a route above is a genuine
+  // 404 — return JSON, not Express's default HTML "Cannot GET ..." page.
+  // The frontend's adminFetch/fetch calls always expect JSON back; an
+  // HTML response there is exactly what produced "Unexpected token '<'"
+  // errors in the browser console.
+  app.use('/api', (req, res) => {
+    res.status(404).json({ error: 'Not found' });
   });
 
-  // ✅ Error handling middleware
+  // Vite Middleware for Development
+  if (process.env.NODE_ENV !== 'production') {
+    // Dynamic import — only reached (and only resolved) when NOT in
+    // production, i.e. only when vite is actually installed.
+    const { createServer: createViteServer } = await import('vite');
+    // Note: In AI Studio, we need to point vite middleware to the frontend directory
+    const frontendPath = path.resolve(__dirname, '../frontend');
+    const vite = await createViteServer({
+      root: frontendPath,
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  }
+
+  // Global JSON error handler — MUST be registered after all routes.
+  // Any error passed to next(err) (including everything wrapped in
+  // asyncHandler) lands here instead of Express's default HTML error
+  // page. This is the safety net: no matter what throws inside a route,
+  // the frontend always gets back parseable JSON.
   app.use((err, req, res, next) => {
-    console.error('Server error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Unhandled request error:', err);
+    if (res.headersSent) return next(err);
+    const status = err.status || err.statusCode || 500;
+    res.status(status).json({
+      error: process.env.NODE_ENV === 'production'
+        ? 'Something went wrong. Please try again.'
+        : (err.message || 'Internal server error')
+    });
   });
 
-  // ✅ Room Cleanup Interval
-  // Removes empty rooms that have been empty for more than 10 minutes
+  // Room Cleanup Interval — wrapped so a transient Supabase error here
+  // (network blip, etc.) just gets logged and retried a minute later,
+  // instead of an unhandled promise rejection potentially taking the
+  // whole process down.
   setInterval(async () => {
     try {
       const now = Date.now();
       const rooms = await roomService.getRooms();
       for (const room of rooms) {
-        // Don't delete the DEMO12 sandbox room
         if (room.code === 'DEMO12') continue;
-        
-        // If room is empty and has been for 10+ minutes, delete it
         if (room.members && room.members.size === 0 && room.emptySince) {
           if (now - room.emptySince > 10 * 60 * 1000) {
             await roomService.deleteRoom(room.code);
-            console.log(`✅ Cleaned up empty room: ${room.code}`);
+            console.log(`Room ${room.code} cleaned up.`);
           }
         }
       }
     } catch (err) {
-      console.error('Error in room cleanup:', err);
+      console.error('Room cleanup interval failed:', err);
     }
-  }, 60 * 1000); // Run every 60 seconds
+  }, 60 * 1000);
 
-  // ✅ Start server
   httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Server running on port ${PORT}`);
-    console.log(`✅ Frontend served from: frontend/dist`);
-    console.log(`✅ Socket.IO connected`);
-    console.log(`✅ API routes: /api/admin, /api/rooms, /api/music`);
-  });
-
-  // ✅ Graceful shutdown
-  process.on('SIGTERM', () => {
-    console.log('SIGTERM signal received: closing HTTP server');
-    httpServer.close(() => {
-      console.log('HTTP server closed');
-      process.exit(0);
-    });
+    console.log(`Server running on port ${PORT}`);
   });
 }
 
-// ✅ Start the server
+// Catch anything that still slips through as a raw unhandled rejection
+// (e.g. inside socket handlers, which asyncHandler doesn't cover) so it's
+// logged instead of silently killing the process on some Node versions.
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled promise rejection:', err);
+});
+
 startServer().catch((err) => {
-  console.error('Failed to start server:', err);
+  console.error('Fatal error during server startup:', err);
   process.exit(1);
 });
