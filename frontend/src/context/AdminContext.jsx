@@ -11,7 +11,7 @@ export function AdminProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false;
-    adminFetch('/admin/me')
+    adminFetch('/admin/session')
       .then(() => { if (!cancelled) setIsAdmin(true); })
       .catch(() => { if (!cancelled) setIsAdmin(false); });
     return () => { cancelled = true; };
