@@ -148,9 +148,32 @@ async function startServer() {
     }
   }, 60 * 1000);
 
-  httpServer.listen(PORT, '0.0.0.0', () => {
+   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
   });
+
+  // Self keep-alive — while this process is alive, it periodically hits
+  // its OWN public URL. Render's free tier spins a service down after
+  // ~15 minutes with no inbound HTTP traffic; this ping is real inbound
+  // traffic (it goes out to the public domain and back in through
+  // Render's proxy), so Render never sees "idle" as long as this timer
+  // is running. RENDER_EXTERNAL_URL is set automatically by Render on
+  // every web service — nothing to configure.
+  //
+  // Limitation: this can only keep an ALREADY-WARM instance warm. It
+  // can't wake up a sleeping one, because if the process is asleep, this
+  // setInterval isn't running either. If literally nobody has the app
+  // open for 15+ minutes, it will still sleep once, and the next person
+  // to open the app eats one slow cold-start load.
+  const SELF_URL = process.env.RENDER_EXTERNAL_URL;
+  if (SELF_URL) {
+    setInterval(() => {
+      fetch(`${SELF_URL}/healthz`).catch(() => {});
+    }, 4 * 60 * 1000);
+    console.log(`Self keep-alive enabled, pinging ${SELF_URL}/healthz every 4 minutes.`);
+  } else {
+    console.log('RENDER_EXTERNAL_URL not set — skipping self keep-alive (expected in local dev).');
+  }
 }
 
 // Catch anything that still slips through as a raw unhandled rejection
