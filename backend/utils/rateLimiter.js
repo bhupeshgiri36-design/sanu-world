@@ -1,42 +1,39 @@
 // backend/utils/rateLimiter.js
-//
-// Generic per-socket flood guard. Wraps a socket.io event handler so a
-// single socket can't fire it more than `max` times per `windowMs`. Used
-// throughout chatSocket.js to stop abuse (message spam, join floods,
-// rapid-fire typing events, etc.) without needing a separate limiter
-// written per event.
-//
-// Usage:
-//   const limitedHandler = createRateLimiter(actualHandler, { windowMs: 10000, max: 20 });
-//   socket.on('send-message', limitedHandler);
 
-export function createRateLimiter(handler, { windowMs = 10000, max = 20, onLimitExceeded } = {}) {
-  const hits = [];
+export const createRateLimiter = (options = {}) => {
+  const {
+    windowMs = 60 * 1000,   // 1 minute window
+    max = 20,               // max requests per window
+    message = 'Too many requests, please try again later.',
+  } = options;
 
-  return function rateLimitedHandler(...args) {
+  const hits = new Map();
+
+  return (req, res, next) => {
+    const ip = getClientIp(req);
     const now = Date.now();
 
-    // Drop timestamps outside the current window.
-    while (hits.length > 0 && now - hits[0] > windowMs) {
-      hits.shift();
+    const record = hits.get(ip);
+
+    if (!record || now - record.start > windowMs) {
+      hits.set(ip, { start: now, count: 1 });
+      return next();
     }
 
-    if (hits.length >= max) {
-      if (typeof onLimitExceeded === 'function') {
-        onLimitExceeded(...args);
-      } else {
-        // If the handler was called with a socket.io ack callback as the
-        // last argument, respond with an error instead of silently
-        // dropping the event.
-        const maybeCallback = args[args.length - 1];
-        if (typeof maybeCallback === 'function') {
-          maybeCallback({ error: 'Too many requests. Please slow down.' });
-        }
-      }
-      return;
+    record.count += 1;
+
+    if (record.count > max) {
+      return res.status(429).json({ error: message });
     }
 
-    hits.push(now);
-    return handler(...args);
+    next();
   };
-}
+};
+
+export const getClientIp = (req) => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket?.remoteAddress || req.ip || 'unknown';
+};
