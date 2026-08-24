@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Copy, CheckCircle2, XCircle, Users } from 'lucide-react';
 import { motion } from 'motion/react';
+import { API_ORIGIN } from '../../lib/config';
 
 export default function Rooms() {
   const navigate = useNavigate();
@@ -19,10 +20,10 @@ export default function Rooms() {
 
   const fetchData = async () => {
     try {
-      const statsRes = await fetch('/api/admin/stats');
+      const statsRes = await fetch(`${API_ORIGIN}/api/admin/stats`, { credentials: 'include' });
       if (statsRes.ok) setStats(await statsRes.json());
 
-      const roomsRes = await fetch('/api/admin/rooms');
+      const roomsRes = await fetch(`${API_ORIGIN}/api/admin/rooms`, { credentials: 'include' });
       if (roomsRes.ok) setRooms(await roomsRes.json());
     } catch (err) {
       console.error("Failed to fetch rooms data");
@@ -38,7 +39,7 @@ export default function Rooms() {
   const handleCloseRoom = async (code) => {
     if (!window.confirm("Are you sure you want to close this room? All users will be disconnected.")) return;
     try {
-      await fetch(`/api/admin/rooms/${code}/close`, { method: 'POST' });
+      await fetch(`${API_ORIGIN}/api/admin/rooms/${code}/close`, { method: 'POST', credentials: 'include' });
       fetchData();
     } catch (err) {
       console.error(err);
@@ -59,8 +60,9 @@ export default function Rooms() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/admin/rooms/create', {
+      const res = await fetch(`${API_ORIGIN}/api/admin/rooms/create`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, nickname, password, maxMembers: parseInt(maxMembers) }),
       });
