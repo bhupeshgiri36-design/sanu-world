@@ -1,7 +1,9 @@
 // ✅ frontend/src/lib/api.js
 // API helper functions for making requests to the backend
 
-const API_BASE = '/api';
+import { API_ORIGIN } from './config';
+
+const API_BASE = `${API_ORIGIN}/api`;
 
 /**
  * Admin API fetch - for admin-only operations
@@ -13,6 +15,7 @@ export const adminFetch = async (endpoint, options = {}) => {
     
     const response = await fetch(url, {
       method: options.method || 'GET',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
@@ -50,6 +53,7 @@ export const uploadMedia = async (file) => {
 
     const response = await fetch(`${API_BASE}/upload`, {
       method: 'POST',
+      credentials: 'include',
       body: formData,
       // Do NOT set Content-Type header - browser will set it with boundary
     });
