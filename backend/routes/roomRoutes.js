@@ -1,6 +1,7 @@
 import express from 'express';
 import { adminMiddleware } from '../middleware/adminMiddleware.js';
 import { roomService } from '../services/roomService.js';
+import { adService } from '../services/adService.js';
 
 const router = express.Router();
 
@@ -50,7 +51,7 @@ router.post('/create', adminMiddleware, async (req, res) => {
     name,
     password,
     creatorNickname: nickname,
-    maxMembers: maxMembers || 1, // Default visitor limit = 1 (+ host = 2, wait, let's keep it simple)
+    maxMembers: maxMembers || 1,
     is_active: true
   });
   
