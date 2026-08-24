@@ -1,6 +1,7 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AdminProvider } from './context/AdminContext';
+import { startKeepAlive } from './lib/keepAlive';
 
 import Landing from './components/Landing';
 const JoinRoom = lazy(() => import('./components/JoinRoom'));
@@ -27,6 +28,11 @@ function RouteLoading() {
 }
 
 export default function App() {
+  useEffect(() => {
+    const stop = startKeepAlive();
+    return stop;
+  }, []);
+
   return (
     <AdminProvider>
       <BrowserRouter>
