@@ -1,12 +1,13 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, DoorOpen, Users, AlertTriangle, ShieldBan, Megaphone, DollarSign, Settings, LogOut } from 'lucide-react';
+import { API_ORIGIN } from '../../lib/config';
 
 export default function AdminSidebar() {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await fetch('/api/admin/logout', { method: 'POST' });
+    await fetch(`${API_ORIGIN}/api/admin/logout`, { method: 'POST', credentials: 'include' });
     navigate('/admin-login');
   };
 
