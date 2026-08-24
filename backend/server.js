@@ -2,7 +2,6 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -21,68 +20,95 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3001;
 
+  // ✅ Middleware
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
   app.use(cors());
 
+  // ✅ HTTP Server with Socket.IO
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
     cors: { origin: '*' }
   });
 
-  // Inject io into request object for controllers to use
+  // ✅ Inject io into request object for controllers to use
   app.use((req, res, next) => {
     req.io = io;
     next();
   });
 
-  // Setup Socket.IO
+  // ✅ Setup Socket.IO handlers
   setupSocketHandlers(io);
 
-  // API Routes
+  // ✅ API Routes
   app.use('/api/admin', adminRoutes);
   app.use('/api/rooms', roomRoutes);
   app.use('/api/music', musicRoutes);
 
-  // Vite Middleware for Development
-  if (process.env.NODE_ENV !== 'production') {
-    // Note: In AI Studio, we need to point vite middleware to the frontend directory
-    const frontendPath = path.resolve(__dirname, '../frontend');
-    const vite = await createViteServer({
-      root: frontendPath,
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    // Production static serving
-    const distPath = path.resolve(__dirname, '../frontend/dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
+  // ✅ FIXED: Serve built frontend static files from frontend/dist
+  // This works in both development (if you've run 'npm run build' in frontend)
+  // and production (where the build happens before deployment)
+  const distPath = path.resolve(__dirname, '../frontend/dist');
+  app.use(express.static(distPath));
 
-  // Room Cleanup Interval
+  // ✅ SPA Fallback: Send index.html for all unmatched routes
+  // This allows React Router to handle client-side routing
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+
+  // ✅ Error handling middleware
+  app.use((err, req, res, next) => {
+    console.error('Server error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  });
+
+  // ✅ Room Cleanup Interval
+  // Removes empty rooms that have been empty for more than 10 minutes
   setInterval(async () => {
-    const now = Date.now();
-    const rooms = await roomService.getRooms();
-    for (const room of rooms) {
-      if (room.code === 'DEMO12') continue;
-      if (room.members && room.members.size === 0 && room.emptySince) {
-        if (now - room.emptySince > 10 * 60 * 1000) {
-          await roomService.deleteRoom(room.code);
-          console.log(`Room ${room.code} cleaned up.`);
+    try {
+      const now = Date.now();
+      const rooms = await roomService.getRooms();
+      for (const room of rooms) {
+        // Don't delete the DEMO12 sandbox room
+        if (room.code === 'DEMO12') continue;
+        
+        // If room is empty and has been for 10+ minutes, delete it
+        if (room.members && room.members.size === 0 && room.emptySince) {
+          if (now - room.emptySince > 10 * 60 * 1000) {
+            await roomService.deleteRoom(room.code);
+            console.log(`✅ Cleaned up empty room: ${room.code}`);
+          }
         }
       }
+    } catch (err) {
+      console.error('Error in room cleanup:', err);
     }
-  }, 60 * 1000);
+  }, 60 * 1000); // Run every 60 seconds
 
+  // ✅ Start server
   httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`✅ Server running on port ${PORT}`);
+    console.log(`✅ Frontend served from: frontend/dist`);
+    console.log(`✅ Socket.IO connected`);
+    console.log(`✅ API routes: /api/admin, /api/rooms, /api/music`);
+  });
+
+  // ✅ Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM signal received: closing HTTP server');
+    httpServer.close(() => {
+      console.log('HTTP server closed');
+      process.exit(0);
+    });
   });
 }
 
-startServer().catch(console.error);
+// ✅ Start the server
+startServer().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});
