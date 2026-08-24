@@ -16,6 +16,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
 import musicRoutes from './routes/musicRoutes.js'; 
 import mediaRoutes from './routes/mediaRoutes.js';
+import adRoutes from './routes/adRoutes.js';
 import { setupSocketHandlers } from './socket/chatSocket.js';
 import { roomService } from './services/roomService.js';
 import { createRateLimiter, getClientIp } from './utils/rateLimiter.js';
@@ -83,6 +84,7 @@ async function startServer() {
   app.use('/api/rooms', roomRoutes);
   app.use('/api/music', musicRoutes);
   app.use('/api/media', mediaRoutes);
+  app.use('/api/ads', adRoutes);
 
   // Anything under /api/* that didn't match a route above is a genuine
   // 404 — return JSON, not Express's default HTML "Cannot GET ..." page.
