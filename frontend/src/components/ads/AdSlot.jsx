@@ -5,7 +5,13 @@ export default function AdSlot({ snippetHtml, width, height, className = '', lab
 
   useEffect(() => {
     if (!snippetHtml || !iframeRef.current) return;
-    const doc = iframeRef.current.contentDocument;
+    // contentDocument (and contentWindow.document as a fallback) can
+    // briefly be null right after the iframe mounts, before the browser
+    // has finished setting up its document — writing to it too early
+    // threw "Cannot read properties of null (reading 'open')" and crashed
+    // the whole ChatRoom tree since nothing caught it.
+    const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
+    if (!doc) return;
     doc.open();
     doc.write(`<!DOCTYPE html><html><head><style>
       html,body{margin:0;padding:0;background:transparent;overflow:hidden;}
