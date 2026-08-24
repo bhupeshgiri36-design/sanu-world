@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { adminFetch } from '../config/api';
+import { adminFetch } from '../lib/api';
 
 // undefined = "still checking", true/false = resolved. Ad components
 // treat undefined the same as false (don't show an ad, then flash it in
@@ -11,8 +11,8 @@ export function AdminProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false;
-    adminFetch('/api/admin/me')
-      .then((res) => { if (!cancelled) setIsAdmin(res.ok); })
+    adminFetch('/admin/me')
+      .then(() => { if (!cancelled) setIsAdmin(true); })
       .catch(() => { if (!cancelled) setIsAdmin(false); });
     return () => { cancelled = true; };
   }, []);
