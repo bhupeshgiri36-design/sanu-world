@@ -14,8 +14,7 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.3",
     "socket.io": "^4.8.3",
-    "uuid": "^14.0.2",
-    "@supabase/supabase-js": "^2.49.1"
+    "uuid": "^14.0.2"
   },
   "devDependencies": {
     "tsx": "^4.21.0",
