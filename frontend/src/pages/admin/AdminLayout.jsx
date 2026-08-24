@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import AdminSidebar from '../../components/admin/AdminSidebar';
+import { API_ORIGIN } from '../../lib/config';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -10,7 +11,7 @@ export default function AdminLayout() {
     // Quick verify session
     const checkAuth = async () => {
       try {
-        const res = await fetch('/api/admin/stats');
+        const res = await fetch(`${API_ORIGIN}/api/admin/stats`, { credentials: 'include' });
         if (res.status === 401 || res.status === 403) {
           navigate('/admin-login');
         } else {
