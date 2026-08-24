@@ -5,7 +5,9 @@
 // rendering or the rest of the page. Posts to the backend's
 // /api/ads/impression route, which is what your backend adService.js
 // (Supabase-backed) should be recording into ad_events.
-const API_BASE = '/api';
+import { API_ORIGIN } from '../lib/config';
+
+const API_BASE = `${API_ORIGIN}/api`;
 
 export const adService = {
   recordImpression(provider, placement) {
