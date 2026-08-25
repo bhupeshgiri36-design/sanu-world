@@ -17,11 +17,8 @@ export default function SideAd() {
   if (hide) return null;
 
   return (
-    <AdSlot
-      snippetHtml={SNIPPET}
-      width="300px"
-      height="600px"
-      className="hidden xl:flex"
-    />
+    <div className="hidden xl:flex w-[160px]">
+      <AdSlot snippetHtml={SNIPPET} nativeWidth={160} nativeHeight={600} />
+    </div>
   );
 }
