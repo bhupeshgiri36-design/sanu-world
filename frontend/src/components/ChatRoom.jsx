@@ -546,7 +546,32 @@ export default function ChatRoom() {
     });
   };
 
+  // Friends see a short ad before the file picker opens; Sanu (host) and
+  // anyone browsing as admin skip straight to the picker — this gate is a
+  // revenue placement, not a real restriction, so it shouldn't exist for
+  // either of them. `imageAdCountdown` disables the Continue button for a
+  // few seconds so the ad actually gets seen instead of being instantly
+  // dismissed.
+  const [showImageAdGate, setShowImageAdGate] = useState(false);
+  const [imageAdCountdown, setImageAdCountdown] = useState(5);
+
+  useEffect(() => {
+    if (!showImageAdGate || imageAdCountdown <= 0) return undefined;
+    const timer = setTimeout(() => setImageAdCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [showImageAdGate, imageAdCountdown]);
+
   const handleImageClick = () => {
+    if (isHost || isAdmin) {
+      fileInputRef.current?.click();
+      return;
+    }
+    setImageAdCountdown(5);
+    setShowImageAdGate(true);
+  };
+
+  const handleImageAdContinue = () => {
+    setShowImageAdGate(false);
     fileInputRef.current?.click();
   };
 
@@ -796,8 +821,9 @@ export default function ChatRoom() {
             </form>
 
             {!isAdmin && (
-              <div className="mt-6">
+              <div className="mt-6 space-y-3">
                 <TopAd />
+                <BottomAd />
               </div>
             )}
           </motion.div>
@@ -1249,6 +1275,35 @@ export default function ChatRoom() {
         )}
       </div>
 
+      {showImageAdGate && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-[#151518] border border-white/10 rounded-[2rem] p-6 max-w-sm w-full text-center shadow-2xl"
+          >
+            <p className="text-xs uppercase tracking-widest text-zinc-500 mb-4">
+              One quick ad before your photo
+            </p>
+            <TopAd />
+            <button
+              type="button"
+              onClick={handleImageAdContinue}
+              disabled={imageAdCountdown > 0}
+              className="mt-6 w-full bg-gradient-to-r from-pink-500 to-fuchsia-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-full transition-all text-sm"
+            >
+              {imageAdCountdown > 0 ? `Continue in ${imageAdCountdown}s` : 'Continue to photo picker'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowImageAdGate(false)}
+              className="mt-3 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              Cancel
+            </button>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
