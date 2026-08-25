@@ -439,6 +439,30 @@ export function setupSocketHandlers(io) {
         type = isLegacyBase64Image ? 'image' : 'text';
       }
 
+      // Optional reply-to. Only accepted from a { text, replyTo } object
+      // payload (media messages don't support it). We never trust the
+      // client's own copy of the quoted nickname/text — a client could
+      // fake that easily — so we look the id up against this room's own
+      // `messages` array and re-derive a small snapshot from there. If
+      // the referenced message isn't found (already scrolled out of the
+      // 100-message buffer, or invalid id) we just drop the quote rather
+      // than failing the whole send.
+      let replySnapshot = null;
+      const replyToId = !isMediaPayload && messageData && typeof messageData === 'object'
+        ? messageData.replyTo
+        : null;
+      if (replyToId && typeof replyToId === 'string') {
+        const original = room.messages.find((m) => m.id === replyToId);
+        if (original) {
+          replySnapshot = {
+            id: original.id,
+            nickname: original.nickname,
+            text: original.type === 'text' ? original.text.slice(0, 200) : `[${original.type}]`,
+            type: original.type
+          };
+        }
+      }
+
       lastMessageTimes.set(socket.id, now);
 
       // The message is always attributed to whoever's socket actually sent
@@ -452,7 +476,8 @@ export function setupSocketHandlers(io) {
         text,
         type,
         timestamp: Date.now(),
-        isAdmin: socket.data.currentUser.isAdmin
+        isAdmin: socket.data.currentUser.isAdmin,
+        replyTo: replySnapshot
       };
 
       if (room.messages.length >= 100) {
@@ -650,6 +675,37 @@ export function setupSocketHandlers(io) {
         io.sockets.in(socket.data.currentRoom).disconnectSockets(true);
         await roomService.deleteRoom(socket.data.currentRoom);
 
+        if (callback) callback({ success: true });
+      });
+    });
+
+    // Host-only "Clear Chat History". Unlike 'end-room', this keeps the
+    // room and everyone in it connected — it only wipes the message log,
+    // for everyone's screen, in-place. Any in-flight replyTo lookups for
+    // messages older than this point will simply fail to resolve on the
+    // next send (see 'send-message' above), which is fine — there's
+    // nothing left to quote.
+    on('admin-clear-history', async (_data, callback) => {
+      if (!socket.data.currentRoom || !socket.data.currentUser) {
+        if (callback) callback({ error: 'Not connected to a room' });
+        return;
+      }
+      if (!socket.data.currentUser.isAdmin) {
+        if (callback) callback({ error: 'Only Sanu can clear this chat.' });
+        return;
+      }
+
+      const room = await roomService.getRoomByCode(socket.data.currentRoom);
+      if (!room) {
+        if (callback) callback({ error: 'Room not found' });
+        return;
+      }
+
+      await withRoomLock(socket.data.currentRoom, async () => {
+        room.messages = [];
+        io.to(socket.data.currentRoom).emit('chat-history-cleared', {
+          clearedBy: socket.data.currentUser.nickname
+        });
         if (callback) callback({ success: true });
       });
     });
