@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Heart } from 'lucide-react';
 import { motion } from 'motion/react';
 import TopAd from '../components/ads/TopAd';
+import BottomAd from '../components/ads/BottomAd';
 import SponsoredLink from '../components/ads/SponsoredLink';
 
 const TELEGRAM_URL = 'https://tpi.li/mytelegramid';
@@ -58,7 +59,11 @@ export default function Goodbye() {
           Back to Sanu World
         </button>
 
-        <div className="mt-6">
+        <div className="mt-6 w-full">
+          <BottomAd />
+        </div>
+
+        <div className="mt-2">
           <SponsoredLink />
         </div>
       </motion.div>
