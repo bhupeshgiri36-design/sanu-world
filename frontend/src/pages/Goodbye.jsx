@@ -4,6 +4,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Heart } from 'lucide-react';
 import { motion } from 'motion/react';
+import TopAd from '../components/ads/TopAd';
 
 export default function Goodbye() {
   const navigate = useNavigate();
@@ -32,11 +33,11 @@ export default function Goodbye() {
           Thanks for connecting with Sanu. We hope to see you again on Sanu World.
         </p>
 
-        {/*
-          Intentionally no ad slot here yet — per the plan, Goodbye becomes
-          part of the monetization funnel later, but only after the core
-          session flow (this page) is confirmed working end-to-end.
-        */}
+        {/* Only rendered for friends — TopAd hides itself automatically
+            if this is ever loaded in an admin browser session. */}
+        <div className="w-full mb-8">
+          <TopAd />
+        </div>
 
         <button
           onClick={() => navigate('/')}
