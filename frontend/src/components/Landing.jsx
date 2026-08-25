@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Users, Globe, MapPin, Heart, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import NativeAd from './ads/NativeAd';
+import TopAd from './ads/TopAd';
+import BottomAd from './ads/BottomAd';
+import SideAd from './ads/SideAd';
 import SponsoredLink from './ads/SponsoredLink';
 
 const ADSTERRA_URL = import.meta.env.VITE_ADSTERRA_DIRECT_LINK || '';
@@ -57,6 +60,12 @@ export default function Landing() {
       </nav>
 
       <div className="relative z-10 pt-24">
+
+        {/* Top banner — first thing visible after the navbar, catches
+            every homepage visitor before they scroll. */}
+        <div className="max-w-3xl mx-auto w-full px-6 pt-6">
+          <TopAd />
+        </div>
         
         {/* Hero Section */}
         <motion.section 
@@ -135,6 +144,10 @@ export default function Landing() {
               </div>
             </div>
           </motion.div>
+
+          {/* Side rail ad — desktop-only (SideAd hides itself below xl),
+              sits as a third column next to the hero content. */}
+          <SideAd />
         </motion.section>
 
         {/* Homepage ad — real NativeAd component now, was a static
@@ -179,6 +192,12 @@ export default function Landing() {
           </div>
         </section>
 
+      </div>
+
+      {/* Bottom banner — last thing before the footer, catches visitors
+          who scrolled all the way through. */}
+      <div className="max-w-3xl mx-auto w-full px-6 py-6 relative z-10">
+        <BottomAd />
       </div>
 
       {/* Footer */}
