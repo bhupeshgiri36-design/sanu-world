@@ -3,10 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { Users, Globe, MapPin, Heart, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import NativeAd from './ads/NativeAd';
+import MidAd from './ads/MidAd';
 import TopAd from './ads/TopAd';
 import BottomAd from './ads/BottomAd';
 import SideAd from './ads/SideAd';
 import SponsoredLink from './ads/SponsoredLink';
+import PopunderAd from './ads/PopunderAd';
+import StickyMobileAd from './ads/StickyMobileAd';
+import SocialLinks from './SocialLinks';
 
 const ADSTERRA_URL = import.meta.env.VITE_ADSTERRA_DIRECT_LINK || '';
 
@@ -29,6 +33,18 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-[#0D0D0F] text-zinc-100 font-sans selection:bg-pink-500/30 overflow-x-hidden">
+      {/* Popunder — landing page only. This page has no form inputs, so
+          the next-click hijack that broke the Join Room form can't
+          repeat here. Do not mount this on /room or /admin routes. */}
+      <PopunderAd />
+
+      {/* Mobile-only sticky bottom bar — the one placement that doesn't
+          need scroll depth to be seen. Fixed position, so it stacks
+          visually above whatever is at the bottom of the viewport;
+          the pb-16 on the footer below keeps it from covering the
+          sponsored link on small screens. */}
+      <StickyMobileAd />
+
       {/* Background Soft Glows */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <motion.div 
@@ -192,6 +208,14 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* Second in-content ad — visitors who scroll past the profile
+            section are engaged readers, a distinct (and valuable)
+            audience from the top-of-page NativeAd impression. Own
+            env vars/placement so this is tracked separately. */}
+        <div className="max-w-3xl mx-auto w-full px-6 pb-10">
+          <MidAd />
+        </div>
+
       </div>
 
       {/* Bottom banner — last thing before the footer, catches visitors
@@ -201,11 +225,12 @@ export default function Landing() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 bg-[#0A0A0C] relative z-10">
+      <footer className="border-t border-white/5 bg-[#0A0A0C] relative z-10 pb-16 xl:pb-0">
         <div className="max-w-7xl mx-auto px-6 py-12 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex flex-col items-center md:items-start">
+          <div className="flex flex-col items-center gap-3">
             <span className="text-xl font-serif tracking-wide text-white leading-none">SANU</span>
-            <span className="text-[8px] font-sans tracking-[0.2em] text-zinc-500 uppercase leading-none">World</span>
+            <span className="text-[8px] font-sans tracking-[0.2em] text-zinc-500 uppercase leading-none mb-1">World</span>
+            <SocialLinks />
           </div>
 
           <div className="flex flex-col items-center md:items-end gap-2">
