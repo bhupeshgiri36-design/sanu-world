@@ -602,10 +602,31 @@ export default function ChatRoom() {
   };
 
   const handleLeave = () => {
-    socket.emit('leave-room');
-    socket.disconnect();
-    sessionStorage.removeItem(`room_${code}`);
-    navigate('/');
+    // Wait for the server to actually confirm the leave before tearing
+    // down the socket. Firing 'leave-room' and calling socket.disconnect()
+    // on the very next line (the old code) is a race: Socket.IO doesn't
+    // guarantee that emit's packet reaches the server before disconnect()
+    // closes the transport, especially on a slow mobile connection. If
+    // disconnect() won that race, the server never saw an explicit leave
+    // at all — just a bare drop — and fell back to the 60s reconnect-grace
+    // window instead of removing this person immediately, which is exactly
+    // the "I left but I still show as here" bug. The 1.5s timeout is just
+    // a safety net so a dead/slow connection can't leave the Leave button
+    // stuck — it still navigates away either way, just possibly without
+    // the clean server-side removal in that edge case.
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      socket.disconnect();
+      sessionStorage.removeItem(`room_${code}`);
+      navigate('/');
+    };
+    const timeout = setTimeout(finish, 1500);
+    socket.emit('leave-room', null, () => {
+      clearTimeout(timeout);
+      finish();
+    });
   };
 
   // Sanu-only: remove a friend from the room. They're disconnected and
