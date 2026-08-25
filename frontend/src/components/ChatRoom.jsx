@@ -415,14 +415,29 @@ export default function ChatRoom() {
       setPeerStatus(null);
     });
 
+    // THE FIX: previously this only set the peerStatus banner text — the
+    // Members sidebar list itself was never touched, so it kept showing
+    // whoever disconnected as a normal, fully-online member (bright pink
+    // dot, no indication anything changed) for the ENTIRE 60-second
+    // reconnect grace window, even though `online-count` had already
+    // dropped. That's exactly the mismatch in the screenshot: "1 online"
+    // while the sidebar still listed both people with no visual
+    // difference. Now we also mark that member `connected: false` in
+    // local state immediately, so the sidebar shows a grey dot + "left"
+    // right away instead of lying for up to a minute.
     socket.on('user-disconnected', (info) => {
       setPeerStatus(info);
+      setRoom((prev) => prev
+        ? { ...prev, members: prev.members.map((m) => (m.id === info.userId ? { ...m, connected: false } : m)) }
+        : prev);
     });
 
     // The reconnecting person comes back with a NEW socket id. Previously
     // this only cleared the "reconnecting..." banner and left their old
     // row (old id) sitting in the member list, so a reconnect could show
-    // up as two entries for the same person. Now we replace the stale row.
+    // up as two entries for the same person. Now we replace the stale row
+    // — the fresh `user` object has no `connected: false` flag, so the
+    // sidebar dot goes back to pink automatically.
     socket.on('user-reconnected', (user) => {
       setPeerStatus(null);
       setRoom((prev) => prev ? { ...prev, members: mergeMember(prev.members, user) } : prev);
@@ -1168,17 +1183,23 @@ export default function ChatRoom() {
           <div className="flex-1 overflow-y-auto p-3">
             <ul className="space-y-1">
               {room.members.map(member => (
-                <li key={member.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-800/80 transition-colors cursor-default">
+                <li key={member.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-800/80 transition-colors cursor-default ${member.connected === false ? 'opacity-50' : ''}`}>
                   <div className="relative">
                     <div className="w-9 h-9 bg-zinc-800 border border-zinc-700 rounded-full flex items-center justify-center text-zinc-200 font-bold text-sm shadow-inner">
                       {member.nickname.charAt(0).toUpperCase()}
                     </div>
-                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-pink-500 border-2 border-zinc-900 rounded-full shadow-sm"></div>
+                    {/* Grey + pulsing while disconnected (mid reconnect-grace-window),
+                        pink while actually connected — see the 'user-disconnected'/
+                        'user-reconnected' handlers above for what flips this. */}
+                    <div className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-zinc-900 rounded-full shadow-sm ${member.connected === false ? 'bg-zinc-500 animate-pulse' : 'bg-pink-500'}`}></div>
                   </div>
                   <span className="text-sm font-semibold text-zinc-200 truncate flex items-center gap-1.5 flex-1 min-w-0">
                     <span className="truncate">{member.nickname}</span>
                     {member.isAdmin && <Crown size={13} className="text-pink-400 fill-pink-400/70 shrink-0" />}
                     {member.id === socket.id && <span className="text-zinc-500 font-normal shrink-0">(You)</span>}
+                    {member.connected === false && member.id !== socket.id && (
+                      <span className="text-zinc-500 font-normal shrink-0 text-[11px] italic">reconnecting…</span>
+                    )}
                   </span>
                   {isHost && !member.isAdmin && member.id !== socket.id && (
                     <button
