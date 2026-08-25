@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users, Globe, MapPin, Heart, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import NativeAd from './ads/NativeAd';
+import SponsoredLink from './ads/SponsoredLink';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -185,9 +186,12 @@ export default function Landing() {
             <span className="text-xl font-serif tracking-wide text-white leading-none">SANU</span>
             <span className="text-[8px] font-sans tracking-[0.2em] text-zinc-500 uppercase leading-none">World</span>
           </div>
-          
-          <div className="text-zinc-600 text-sm font-light">
-            © {new Date().getFullYear()} SANU WORLD. All rights reserved.
+
+          <div className="flex flex-col items-center md:items-end gap-2">
+            <div className="text-zinc-600 text-sm font-light">
+              © {new Date().getFullYear()} SANU WORLD. All rights reserved.
+            </div>
+            <SponsoredLink />
           </div>
         </div>
       </footer>
