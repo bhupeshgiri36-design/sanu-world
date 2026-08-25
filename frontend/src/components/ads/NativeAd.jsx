@@ -16,5 +16,20 @@ export default function NativeAd() {
 
   if (hide) return null;
 
-  return <AdSlot snippetHtml={SNIPPET} width="100%" className="w-full my-4" label="SPONSORED" />;
+  // Native banners self-size to fill their container — they aren't a
+  // fixed pixel creative like the top/bottom/side banners. AdSlot only
+  // understands nativeWidth/nativeHeight (the old `width="100%"` prop
+  // here didn't exist on AdSlot, so it was silently ignored and every
+  // native ad was getting clipped to AdSlot's 300x250 banner default).
+  // 320x300 matches Adsterra's native banner container recommendation
+  // and reads fine full-width on mobile.
+  return (
+    <AdSlot
+      snippetHtml={SNIPPET}
+      nativeWidth={320}
+      nativeHeight={300}
+      className="w-full my-4"
+      label="SPONSORED"
+    />
+  );
 }
