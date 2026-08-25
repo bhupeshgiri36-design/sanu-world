@@ -7,6 +7,8 @@ import { motion } from 'motion/react';
 import TopAd from '../components/ads/TopAd';
 import SponsoredLink from '../components/ads/SponsoredLink';
 
+const TELEGRAM_URL = 'https://tpi.li/mytelegramid';
+
 export default function Goodbye() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,6 +41,15 @@ export default function Goodbye() {
         <div className="w-full mb-8">
           <TopAd />
         </div>
+
+        <a
+          href={TELEGRAM_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full mb-4 bg-[#26A5E4] hover:bg-[#1e8fc9] text-white font-bold py-3 px-8 rounded-full transition-colors shadow-[0_5px_15px_rgba(38,165,228,0.3)] text-sm tracking-wider uppercase flex items-center justify-center gap-2"
+        >
+          Message Sanu on Telegram
+        </a>
 
         <button
           onClick={() => navigate('/')}
