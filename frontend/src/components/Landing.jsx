@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Globe, MapPin, Heart, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
+import NativeAd from './ads/NativeAd';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -133,11 +134,11 @@ export default function Landing() {
           </motion.div>
         </motion.section>
 
-        {/* HOMEPAGE AD SPACE */}
-        <div className="w-full flex items-center justify-center py-10 px-6">
-          <div className="w-[320px] h-[100px] sm:w-[728px] sm:h-[90px] bg-[#1A1A1E] border border-zinc-800 rounded flex items-center justify-center text-zinc-600 font-bold tracking-widest text-xs shadow-inner">
-            AD SPACE (HOMEPAGE)
-          </div>
+        {/* Homepage ad — real NativeAd component now, was a static
+            placeholder div before. NativeAd already hides itself for
+            admin via useIsAdmin(), no extra check needed here. */}
+        <div className="max-w-3xl mx-auto w-full px-6 py-10">
+          <NativeAd />
         </div>
 
         {/* Profile Section */}
