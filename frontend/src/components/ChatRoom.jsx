@@ -802,7 +802,7 @@ export default function ChatRoom() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col h-screen max-h-screen overflow-hidden text-zinc-100">
+    <div className="min-h-[100dvh] bg-zinc-950 flex flex-col h-[100dvh] max-h-[100dvh] overflow-hidden text-zinc-100">
       {/* Header */}
       <header className="bg-zinc-900/80 backdrop-blur-xl border-b border-zinc-800 px-5 py-4 flex flex-col gap-3 shrink-0 z-10 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
         <div className="flex items-center justify-between">
@@ -1088,7 +1088,7 @@ export default function ChatRoom() {
             </div>
           )}
 
-          <div className="p-4 bg-zinc-900 border-t border-zinc-800 shrink-0">
+          <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-zinc-900 border-t border-zinc-800 shrink-0">
             {uploadError && (
               <div className="mb-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
                 {uploadError}
@@ -1130,7 +1130,7 @@ export default function ChatRoom() {
                 onChange={handleInputChange}
                 onBlur={stopTyping}
                 placeholder="Type a message..."
-                className="flex-1 px-5 py-3.5 h-[52px] bg-zinc-950 border border-zinc-800 focus:bg-zinc-950 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-2xl transition-all outline-none text-zinc-100 placeholder-zinc-500"
+                className="flex-1 min-w-0 px-5 py-3.5 h-[52px] bg-zinc-950 border border-zinc-800 focus:bg-zinc-950 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-2xl transition-all outline-none text-zinc-100 placeholder-zinc-500"
                 maxLength={1000}
               />
               <motion.button
