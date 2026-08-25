@@ -1,11 +1,44 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
-export default function AdSlot({ snippetHtml, width, height, className = '', label = 'ADVERTISEMENT' }) {
+// nativeWidth/nativeHeight describe the ad creative's real, fixed pixel
+// size (e.g. Adsterra's 728x90 banner or 160x600 skyscraper). These ad
+// formats don't reflow themselves — on a narrow phone screen the raw
+// iframe either overflows the layout or gets silently clipped on the
+// side. Instead we measure the available width every time it changes
+// and scale the whole creative down with a CSS transform to fit,
+// keeping it centered and fully visible instead of cut off.
+export default function AdSlot({
+  snippetHtml,
+  nativeWidth = 300,
+  nativeHeight = 250,
+  className = '',
+  label = 'ADVERTISEMENT',
+}) {
+  const containerRef = useRef(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const available = el.offsetWidth;
+      // Never scale UP past 1 — only shrink to fit on small screens.
+      setScale(available > 0 ? Math.min(1, available / nativeWidth) : 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [nativeWidth]);
+
+  const scaledHeight = Math.round(nativeHeight * scale);
+
   if (!snippetHtml) {
     return (
       <div
-        className={`bg-[#1A1A1E] border border-zinc-800 rounded-xl flex items-center justify-center text-zinc-600 font-bold tracking-widest text-xs shadow-inner ${className}`}
-        style={{ width, height }}
+        ref={containerRef}
+        className={`bg-[#1A1A1E] border border-zinc-800 rounded-xl flex items-center justify-center text-zinc-600 font-bold tracking-widest text-xs shadow-inner w-full ${className}`}
+        style={{ height: scaledHeight || nativeHeight }}
       >
         {label}
       </div>
@@ -23,15 +56,24 @@ export default function AdSlot({ snippetHtml, width, height, className = '', lab
   </style></head><body>${snippetHtml}</body></html>`;
 
   return (
-    <iframe
-      title="advertisement"
-      className={className}
-      style={{ width, height, border: 'none', display: 'block' }}
-      // Deliberately no "allow-same-origin" here — combining it with
-      // allow-scripts would let third-party ad JS escape the sandbox
-      // and access the parent page. Keep the sandbox as-is.
-      sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
-      srcDoc={doc}
-    />
+    <div
+      ref={containerRef}
+      className={`w-full overflow-hidden flex justify-center ${className}`}
+      style={{ height: scaledHeight }}
+    >
+      <iframe
+        title="advertisement"
+        style={{
+          width: nativeWidth,
+          height: nativeHeight,
+          border: 'none',
+          display: 'block',
+          transform: `scale(${scale})`,
+          transformOrigin: 'top center',
+        }}
+        sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+        srcDoc={doc}
+      />
+    </div>
   );
 }
