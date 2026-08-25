@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, KeyRound } from 'lucide-react';
 import { motion } from 'motion/react';
 import { API_ORIGIN } from '../lib/config';
+import TopAd from './ads/TopAd';
+import BottomAd from './ads/BottomAd';
 
 export default function JoinRoom() {
   const navigate = useNavigate();
@@ -118,6 +120,8 @@ export default function JoinRoom() {
             </div>
           )}
 
+          {step === 2 && <TopAd />}
+
           {step === 1 ? (
             <form onSubmit={handleNext} className="space-y-6">
               <div>
@@ -189,6 +193,8 @@ export default function JoinRoom() {
               </motion.button>
             </form>
           )}
+
+          {step === 2 && <BottomAd />}
         </motion.div>
       </div>
     </div>
