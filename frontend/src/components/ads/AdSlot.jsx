@@ -71,7 +71,14 @@ export default function AdSlot({
           transform: `scale(${scale})`,
           transformOrigin: 'top center',
         }}
-        sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+        // NOTE: deliberately does NOT include "allow-popups-to-escape-sandbox"
+        // or "allow-top-navigation". Those two flags are what let an ad
+        // script hijack the *parent tab* (redirect the whole site the
+        // moment the user clicks/types anywhere) instead of just opening
+        // its own popup. "allow-popups" alone still lets a banner open a
+        // normal new tab when someone actually clicks the ad creative —
+        // it just can't take over navigation of this page.
+        sandbox="allow-scripts allow-popups"
         srcDoc={doc}
       />
     </div>
