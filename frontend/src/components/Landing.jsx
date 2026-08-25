@@ -39,14 +39,8 @@ export default function Landing() {
             <span className="text-[10px] font-sans tracking-[0.3em] text-zinc-400 uppercase leading-none">World</span>
           </div>
 
-          <div className="flex items-center gap-6">
-            <button 
-              onClick={() => navigate('/join')} 
-              className="hidden sm:block text-sm font-medium text-zinc-300 hover:text-[#ff8bb3] transition-colors"
-            >
-              Have an Invite?
-            </button>
-            <motion.button 
+                   <div className="flex items-center gap-6">
+            <motion.button
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => navigate('/join')} 
