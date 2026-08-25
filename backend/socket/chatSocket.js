@@ -51,6 +51,29 @@ function withRoomLock(code, fn) {
   return run;
 }
 
+// `maxMembers` is meant to cap how many FRIENDS can be in a room at once —
+// it's set by Sanu on the "Create Room" form as "Max Capacity". Sanu
+// themselves is expected to be connected from more than one device at a
+// time (laptop + phone, say), and every one of those admin sockets is
+// completely exempt from the capacity/approval gate below (see `isAdmin`
+// checks). If we counted those admin sockets against `room.members.size`
+// the way we used to, two things could go wrong depending on order of
+// connection: (a) Sanu opening a second device could silently push the
+// room over its stated capacity (e.g. "size 2" ending up with 3 total
+// members — 2 of them Sanu), or (b) if both of Sanu's devices connect
+// before a friend does, the friend's join request would be rejected
+// outright as "room full" before Sanu ever got a chance to approve them.
+// Counting only non-admin members here means the capacity number always
+// means what it says on the tin — "this many friends" — no matter how
+// many of Sanu's own devices are connected.
+function friendCount(room) {
+  let count = 0;
+  for (const m of room.members.values()) {
+    if (!m.isAdmin) count++;
+  }
+  return count;
+}
+
 export function setupSocketHandlers(io) {
   const lastMessageTimes = new Map();
 
@@ -213,7 +236,10 @@ export function setupSocketHandlers(io) {
         // A friend who isn't just reconnecting (grace window elapsed, or they
         // deliberately left and tapped the link again) doesn't walk straight
         // in — Sanu has to approve them first. Admin joins skip this entirely.
-        if (!isAdmin && !isReconnecting && room.members.size >= room.maxMembers && !room.members.has(socket.id)) {
+        // Capacity is measured against friendCount(), not raw member count,
+        // so however many of Sanu's own devices are already connected never
+        // eats into the capacity meant for friends.
+        if (!isAdmin && !isReconnecting && friendCount(room) >= room.maxMembers && !room.members.has(socket.id)) {
           if (callback) callback({ error: 'This room is full' });
           return;
         }
@@ -308,7 +334,7 @@ export function setupSocketHandlers(io) {
           return;
         }
 
-        if (room.members.size >= room.maxMembers && !room.members.has(request.socketId)) {
+        if (friendCount(room) >= room.maxMembers && !room.members.has(request.socketId)) {
           requesterSocket.emit('join-denied', { reason: 'This room is full' });
           if (callback) callback({ success: true });
           return;
