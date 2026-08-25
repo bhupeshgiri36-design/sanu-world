@@ -660,9 +660,21 @@ export function setupSocketHandlers(io) {
 
     // Explicit, visitor-initiated leave. Distinct from a network disconnect —
     // this skips the grace window so the host isn't shown a false
-    // "reconnecting..." indicator for someone who left on purpose.
-    on('leave-room', async () => {
-      if (!socket.data.currentRoom || !socket.data.currentUser || socket.data.currentUser.isAdmin) return;
+    // "reconnecting..." indicator for someone who left on purpose. Takes a
+    // callback now — see the client side (handleLeave in ChatRoom.jsx) for
+    // why: emitting this and immediately calling socket.disconnect() with
+    // no ack was a race the client used to lose on a slow connection,
+    // where disconnect() tore down the transport before this packet
+    // actually made it to the server. When that happened the server never
+    // saw an explicit leave at all — just a bare socket drop — so it fell
+    // back to the 60s reconnect-grace path instead of removing them
+    // immediately. Acking here lets the client safely wait for confirmation
+    // before disconnecting.
+    on('leave-room', async (_data, callback) => {
+      if (!socket.data.currentRoom || !socket.data.currentUser || socket.data.currentUser.isAdmin) {
+        if (callback) callback({ success: true });
+        return;
+      }
 
       const code = socket.data.currentRoom;
       const user = socket.data.currentUser;
@@ -675,7 +687,10 @@ export function setupSocketHandlers(io) {
 
       await withRoomLock(code, async () => {
         const room = await roomService.getRoomByCode(code);
-        if (!room) return;
+        if (!room) {
+          if (callback) callback({ success: true });
+          return;
+        }
 
         const pending = user.clientId ? room.pendingDisconnects?.get(user.clientId) : null;
         if (pending) {
@@ -689,6 +704,8 @@ export function setupSocketHandlers(io) {
         if (room.members.size === 0) {
           room.emptySince = Date.now();
         }
+
+        if (callback) callback({ success: true });
       });
     });
 
