@@ -19,9 +19,9 @@ export default function TopAd() {
   return (
     <AdSlot
       snippetHtml={SNIPPET}
-      width="100%"
-      height="90px"
-      className="w-full my-4"
+      nativeWidth={728}
+      nativeHeight={90}
+      className="my-3"
     />
   );
 }
