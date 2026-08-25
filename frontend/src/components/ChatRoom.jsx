@@ -554,7 +554,7 @@ export default function ChatRoom() {
   // few seconds so the ad actually gets seen instead of being instantly
   // dismissed.
   const [showImageAdGate, setShowImageAdGate] = useState(false);
-  const [imageAdCountdown, setImageAdCountdown] = useState(5);
+  const [imageAdCountdown, setImageAdCountdown] = useState(10);
 
   useEffect(() => {
     if (!showImageAdGate || imageAdCountdown <= 0) return undefined;
