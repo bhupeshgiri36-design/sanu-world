@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Heart } from 'lucide-react';
 import { motion } from 'motion/react';
 import TopAd from '../components/ads/TopAd';
+import SponsoredLink from '../components/ads/SponsoredLink';
 
 export default function Goodbye() {
   const navigate = useNavigate();
@@ -45,6 +46,10 @@ export default function Goodbye() {
         >
           Back to Sanu World
         </button>
+
+        <div className="mt-6">
+          <SponsoredLink />
+        </div>
       </motion.div>
     </div>
   );
