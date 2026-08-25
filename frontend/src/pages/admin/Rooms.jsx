@@ -120,7 +120,16 @@ export default function Rooms() {
                     </div>
                     <div className="flex items-center gap-2 text-sm text-zinc-400">
                       <Users size={14} className="text-pink-400" />
-                      <span>{room.members} / {room.maxMembers} members</span>
+                      {/* Capacity is friends only — Sanu can be connected
+                          from extra devices (laptop + phone, etc.) without
+                          eating into it, so we compare against `friends`,
+                          not the raw `members` count. Fall back to
+                          `members` for older backends that don't send
+                          `friends` yet. */}
+                      <span>{room.friends ?? room.members} / {room.maxMembers} friends</span>
+                      {room.members > (room.friends ?? room.members) && (
+                        <span className="text-zinc-600">· {room.members} online total</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto">
