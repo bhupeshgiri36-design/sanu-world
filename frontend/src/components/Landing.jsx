@@ -4,7 +4,6 @@ import { Users, Globe, MapPin, Heart, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import NativeAd from './ads/NativeAd';
 import SponsoredLink from './ads/SponsoredLink';
-import TelegramLink from './TelegramLink';
 
 const ADSTERRA_URL = import.meta.env.VITE_ADSTERRA_DIRECT_LINK || '';
 
@@ -45,7 +44,6 @@ export default function Landing() {
           </div>
 
                    <div className="flex items-center gap-3">
-            <TelegramLink />
             <motion.button
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
@@ -98,7 +96,6 @@ export default function Landing() {
               >
                 Chat with Sanu <Heart size={16} className="fill-white" />
               </motion.button>
-              <TelegramLink variant="outline" className="w-full sm:w-auto" />
               <motion.button 
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
