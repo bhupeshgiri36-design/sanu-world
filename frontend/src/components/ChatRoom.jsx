@@ -7,6 +7,7 @@ import { Send, Users, LogOut, Share2, Menu, X, CheckCircle2, Image as ImageIcon,
 import { motion, AnimatePresence } from 'motion/react';
 import TopAd from './ads/TopAd';
 import BottomAd from './ads/BottomAd';
+import SideAd from './ads/SideAd';
 import MusicSearch from './music/MusicSearch';
 import MusicPlayer from './music/MusicPlayer';
 import { adminFetch, uploadMedia } from '../lib/api';
@@ -1210,6 +1211,11 @@ export default function ChatRoom() {
             </form>
           </div>
         </main>
+
+        {/* Side rail ad — only visible on wide desktop screens (SideAd is
+            "hidden xl:flex" internally) and only for real visitors, so it
+            never shows up on mobile and never shows for the host/admin. */}
+        {!isHost && !isAdmin && <SideAd />}
 
         {/* Sidebar */}
         <aside
