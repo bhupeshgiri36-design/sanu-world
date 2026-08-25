@@ -40,7 +40,12 @@ export const adminFetch = async (endpoint, options = {}) => {
 
 /**
  * Upload media files (images, videos, audio, etc.)
- * Sends file as multipart/form-data to /api/upload
+ * Sends file as multipart/form-data to /api/media/upload — the actual
+ * mounted route (see backend/server.js: app.use('/api/media', mediaRoutes)
+ * and backend/routes/mediaRoutes.js: router.post('/upload', ...)).
+ * This used to POST to /api/upload, which doesn't exist on the backend at
+ * all — Express fell through to the generic /api 404 handler, which is
+ * why every image/video send failed with "Not found" no matter what.
  */
 export const uploadMedia = async (file) => {
   try {
@@ -51,7 +56,7 @@ export const uploadMedia = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE}/upload`, {
+    const response = await fetch(`${API_BASE}/media/upload`, {
       method: 'POST',
       credentials: 'include',
       body: formData,
