@@ -48,7 +48,20 @@ async function startServer() {
   app.use('/uploads', express.static(path.resolve(__dirname, 'uploads')));
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
-    cors: corsOptions
+    cors: corsOptions,
+    // Defaults here are pingInterval: 25000, pingTimeout: 20000 — meaning
+    // if a device doesn't close its tab cleanly (app killed, phone locked,
+    // wifi cut mid-session) the server can take up to ~45s to even notice
+    // the socket is gone. Until it notices, nothing fires: no
+    // 'user-disconnected' event, so the sidebar keeps showing that member
+    // as fully online with no indication anything changed, for up to 45s.
+    // Tightened here so the worst case is ~18s instead: the server pings
+    // every 8s, and if a pong doesn't come back within 10s of that ping,
+    // it declares the socket dead. Still tolerant of a couple of missed
+    // beats on a shaky connection — just no longer a near-minute of
+    // silence on an outright dropped device.
+    pingInterval: 8000,
+    pingTimeout: 10000
   });
 
   // A person opening/closing lots of connections (or a script hammering
