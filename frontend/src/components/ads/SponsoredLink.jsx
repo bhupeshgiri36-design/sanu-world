@@ -15,7 +15,7 @@ export default function SponsoredLink({ className = '' }) {
   if (!URL || isAdmin !== false) return null;
 
   return (
-    
+    <a
       href={URL}
       target="_blank"
       rel="noopener noreferrer nofollow sponsored"
