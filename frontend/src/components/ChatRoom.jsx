@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getSocket } from '../lib/socket';
-import { Send, Users, LogOut, Share2, Menu, X, CheckCircle2, Image as ImageIcon, Music, Heart, MessageSquare, Crown, UserX, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Send, Users, LogOut, Share2, Menu, X, CheckCircle2, Image as ImageIcon, Music, Heart, MessageSquare, Crown, UserX, ChevronDown, ChevronUp, Loader2, Trash2, CornerUpLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import TopAd from './ads/TopAd';
 import BottomAd from './ads/BottomAd';
@@ -564,7 +564,14 @@ export default function ChatRoom() {
   }, [showImageAdGate, imageAdCountdown]);
 
   const handleImageClick = () => {
-    if (isHost || isAdmin) {
+    // isAdmin starts as `undefined` while the admin-session check is still
+    // in flight (see AdminContext). Treating "not yet true" as "show the
+    // ad gate" meant Sanu could see this popup for real photos sent while
+    // the admin check was still loading — checking `isAdmin !== false`
+    // instead means we only show the gate once non-admin status is
+    // actually confirmed, matching how the ad components themselves treat
+    // undefined (see useIsAdmin's doc comment).
+    if (isHost || isAdmin !== false) {
       fileInputRef.current?.click();
       return;
     }
@@ -822,7 +829,7 @@ export default function ChatRoom() {
               </motion.button>
             </form>
 
-            {!isAdmin && (
+            {isAdmin === false && (
               <div className="mt-6 space-y-3">
                 <TopAd />
                 <BottomAd />
@@ -1083,7 +1090,7 @@ export default function ChatRoom() {
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-pink-600/10 rounded-full blur-[100px] pointer-events-none" />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-fuchsia-600/10 rounded-full blur-[100px] pointer-events-none" />
 
-          {!isHost && !isAdmin && (
+          {!isHost && isAdmin === false && (
             <div className="w-full bg-zinc-900/50 backdrop-blur-md border-b border-zinc-800 flex items-center justify-center shrink-0 z-10 py-2 px-4">
               <TopAd />
             </div>
@@ -1152,7 +1159,7 @@ export default function ChatRoom() {
             <div ref={messagesEndRef} />
           </div>
 
-          {!isHost && !isAdmin && (
+          {!isHost && isAdmin === false && (
             <div className="w-full bg-zinc-900/50 backdrop-blur-md border-t border-zinc-800 flex items-center justify-center shrink-0 z-10 py-2 px-4">
               <BottomAd />
             </div>
@@ -1162,7 +1169,7 @@ export default function ChatRoom() {
               sticky/fixed — sits in normal flow between BottomAd and the
               input bar, so it never fights StickyMobileAd (mounted on
               Landing.jsx) for space, and never covers the message list. */}
-          {!isHost && !isAdmin && <ChatBottomAd />}
+          {!isHost && isAdmin === false && <ChatBottomAd />}
 
           <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-zinc-900 border-t border-zinc-800 shrink-0">
             {uploadError && (
@@ -1225,7 +1232,7 @@ export default function ChatRoom() {
         {/* Side rail ad — only visible on wide desktop screens (SideAd is
             "hidden xl:flex" internally) and only for real visitors, so it
             never shows up on mobile and never shows for the host/admin. */}
-        {!isHost && !isAdmin && <SideAd />}
+        {!isHost && isAdmin === false && <SideAd />}
 
         {/* Sidebar */}
         <aside
