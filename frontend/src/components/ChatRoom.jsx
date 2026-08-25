@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import TopAd from './ads/TopAd';
 import BottomAd from './ads/BottomAd';
 import SideAd from './ads/SideAd';
+import ChatBottomAd from './ads/ChatBottomAd';
 import MusicSearch from './music/MusicSearch';
 import MusicPlayer from './music/MusicPlayer';
 import { adminFetch, uploadMedia } from '../lib/api';
@@ -1156,6 +1157,12 @@ export default function ChatRoom() {
               <BottomAd />
             </div>
           )}
+
+          {/* NEW: slim ad strip directly above the message input. Not
+              sticky/fixed — sits in normal flow between BottomAd and the
+              input bar, so it never fights StickyMobileAd (mounted on
+              Landing.jsx) for space, and never covers the message list. */}
+          {!isHost && !isAdmin && <ChatBottomAd />}
 
           <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-zinc-900 border-t border-zinc-800 shrink-0">
             {uploadError && (
