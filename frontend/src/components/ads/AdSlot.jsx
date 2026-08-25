@@ -71,14 +71,26 @@ export default function AdSlot({
           transform: `scale(${scale})`,
           transformOrigin: 'top center',
         }}
-        // NOTE: deliberately does NOT include "allow-popups-to-escape-sandbox"
-        // or "allow-top-navigation". Those two flags are what let an ad
-        // script hijack the *parent tab* (redirect the whole site the
-        // moment the user clicks/types anywhere) instead of just opening
-        // its own popup. "allow-popups" alone still lets a banner open a
-        // normal new tab when someone actually clicks the ad creative —
-        // it just can't take over navigation of this page.
-        sandbox="allow-scripts allow-popups"
+        // 🔧 FIXED: added "allow-same-origin". A srcDoc iframe sandboxed
+        // WITHOUT allow-same-origin gets an opaque/null origin. Most ad
+        // network scripts (including Adsterra's invoke.js) make XHR/fetch
+        // calls and read cookies to decide what creative to serve — from a
+        // null origin those requests are silently rejected or treated as
+        // "no fill", with the failure happening inside the sandboxed
+        // iframe's own console, invisible from the parent page. That is
+        // exactly why every real Adsterra key was correctly set, the
+        // snippet was correctly injected, and yet no creative ever
+        // rendered: the ad script itself couldn't successfully call home.
+        //
+        // This still deliberately excludes "allow-popups-to-escape-sandbox"
+        // and "allow-top-navigation" — those two are what let an ad
+        // script hijack the *parent tab's* navigation the moment someone
+        // clicks or types anywhere on the page, which is the bug that
+        // broke the Join Room form earlier. "allow-same-origin" only
+        // grants the iframe a real (non-null) origin so its own network
+        // requests work; it does not grant it any ability to navigate or
+        // reach into the parent page.
+        sandbox="allow-scripts allow-same-origin allow-popups"
         srcDoc={doc}
       />
     </div>
