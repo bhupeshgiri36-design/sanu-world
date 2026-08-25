@@ -20,7 +20,12 @@ export default function ChatBottomAd() {
     if (SNIPPET && !hide) adService.recordImpression(PROVIDER, 'chat_bottom');
   }, [hide]);
 
-  if (hide) return null;
+  // No snippet configured yet — render nothing rather than an empty
+  // "ADVERTISEMENT" placeholder box. Unlike Top/Bottom/Mid (which are
+  // meant to reserve layout space even before a snippet is set), this
+  // slot sits directly above the message input, so an empty placeholder
+  // here reads as a broken UI element rather than "an ad is loading".
+  if (hide || !SNIPPET) return null;
 
   return (
     <div className="w-full border-t border-white/5 bg-[#0D0D0F] flex items-center justify-center py-1.5 px-2">
