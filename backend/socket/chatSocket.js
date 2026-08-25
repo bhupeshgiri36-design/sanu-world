@@ -51,21 +51,17 @@ function withRoomLock(code, fn) {
   return run;
 }
 
-// `maxMembers` is meant to cap how many FRIENDS can be in a room at once —
-// it's set by Sanu on the "Create Room" form as "Max Capacity". Sanu
-// themselves is expected to be connected from more than one device at a
-// time (laptop + phone, say), and every one of those admin sockets is
-// completely exempt from the capacity/approval gate below (see `isAdmin`
-// checks). If we counted those admin sockets against `room.members.size`
-// the way we used to, two things could go wrong depending on order of
-// connection: (a) Sanu opening a second device could silently push the
-// room over its stated capacity (e.g. "size 2" ending up with 3 total
-// members — 2 of them Sanu), or (b) if both of Sanu's devices connect
-// before a friend does, the friend's join request would be rejected
-// outright as "room full" before Sanu ever got a chance to approve them.
-// Counting only non-admin members here means the capacity number always
-// means what it says on the tin — "this many friends" — no matter how
-// many of Sanu's own devices are connected.
+// `maxMembers` is a TOTAL headcount cap — it includes Sanu. A room
+// created with "Max Capacity 2" means at most 2 sockets total in the
+// room at once (e.g. Sanu + 1 friend, or 2 friends if Sanu hasn't
+// connected yet). If Sanu connects from a second device (laptop +
+// phone), that second connection also counts against the same cap —
+// it's a real seat, not a free exemption.
+//
+// friendCount() itself is kept only for the admin dashboard's "friends"
+// stat (Rooms.jsx shows "friends / maxMembers" so Sanu can tell at a
+// glance how many of the occupied seats are actual guests vs. their own
+// extra devices) — it is NOT used for capacity enforcement below.
 function friendCount(room) {
   let count = 0;
   for (const m of room.members.values()) {
@@ -235,11 +231,11 @@ export function setupSocketHandlers(io) {
 
         // A friend who isn't just reconnecting (grace window elapsed, or they
         // deliberately left and tapped the link again) doesn't walk straight
-        // in — Sanu has to approve them first. Admin joins skip this entirely.
-        // Capacity is measured against friendCount(), not raw member count,
-        // so however many of Sanu's own devices are already connected never
-        // eats into the capacity meant for friends.
-        if (!isAdmin && !isReconnecting && friendCount(room) >= room.maxMembers && !room.members.has(socket.id)) {
+        // in — Sanu has to approve them first. Admin joins skip the approval
+        // step (Sanu never needs to approve themselves), but NOT the
+        // capacity check below — maxMembers is a total headcount, so Sanu's
+        // own connections count against it too.
+        if (!isReconnecting && room.members.size >= room.maxMembers && !room.members.has(socket.id)) {
           if (callback) callback({ error: 'This room is full' });
           return;
         }
@@ -334,7 +330,7 @@ export function setupSocketHandlers(io) {
           return;
         }
 
-        if (friendCount(room) >= room.maxMembers && !room.members.has(request.socketId)) {
+        if (room.members.size >= room.maxMembers && !room.members.has(request.socketId)) {
           requesterSocket.emit('join-denied', { reason: 'This room is full' });
           if (callback) callback({ success: true });
           return;
