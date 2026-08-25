@@ -454,12 +454,13 @@ export default function ChatRoom() {
     // room keeps running for everyone else, only this person is removed,
     // and it can never happen to Sanu (the backend only lets an admin kick
     // someone else).
-    socket.on('kicked', () => {
-      // Removed friends land straight on the homepage — no interim ad
-      // screen, and no way to walk back in on the old link/nickname
-      // (the server blocks that via kickedNicknames).
+        socket.on('kicked', () => {
+      // Removed friends see the same Goodbye screen as a normal room
+      // close — no interim ad screen on this transition, and no way to
+      // walk back in on the old link/nickname (the server blocks that
+      // via kickedNicknames).
       sessionStorage.removeItem(`room_${code}`);
-      navigate('/');
+      navigate('/goodbye', { state: { reason: 'You were removed from this room' } });
     });
 
     socket.on('online-count', (count) => {
@@ -620,7 +621,9 @@ export default function ChatRoom() {
       finished = true;
       socket.disconnect();
       sessionStorage.removeItem(`room_${code}`);
-      navigate('/');
+      // Friend chose to leave on their own — same Goodbye screen as any
+      // other end of the session, not a bare drop to the homepage.
+      navigate('/goodbye', { state: { reason: 'You left the chat' } });
     };
     const timeout = setTimeout(finish, 1500);
     socket.emit('leave-room', null, () => {
