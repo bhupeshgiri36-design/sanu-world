@@ -1,7 +1,8 @@
 import React, { Suspense, lazy, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AdminProvider } from './context/AdminContext';
 import { startKeepAlive } from './lib/keepAlive';
+import SocialBarAd from './components/ads/SocialBarAd';
 
 import Landing from './components/Landing';
 const JoinRoom = lazy(() => import('./components/JoinRoom'));
@@ -18,6 +19,16 @@ const Blocked = lazy(() => import('./pages/admin/Blocked'));
 const Ads = lazy(() => import('./pages/admin/Ads'));
 const Revenue = lazy(() => import('./pages/admin/Revenue'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
+
+// Social Bar mounts on every visitor-facing page but never on the admin
+// dashboard itself (/admin, /admin-login) — SocialBarAd also self-hides
+// once an admin session resolves, this just keeps it off the login/
+// dashboard screens even before that check finishes.
+function GlobalAds() {
+  const location = useLocation();
+  if (location.pathname.startsWith('/admin')) return null;
+  return <SocialBarAd />;
+}
 
 function RouteLoading() {
   return (
@@ -36,6 +47,7 @@ export default function App() {
   return (
     <AdminProvider>
       <BrowserRouter>
+        <GlobalAds />
         <Suspense fallback={<RouteLoading />}>
           <Routes>
             <Route path="/" element={<Landing />} />
