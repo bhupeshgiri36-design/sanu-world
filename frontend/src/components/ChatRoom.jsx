@@ -61,6 +61,8 @@ export default function ChatRoom() {
   const [room, setRoom] = useState(null);
   const [error, setError] = useState('');
   const [inputText, setInputText] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null); // { id, nickname, text, type } | null
+  const [clearingHistory, setClearingHistory] = useState(false);
   const [onlineCount, setOnlineCount] = useState(0);
   const [showSidebar, setShowSidebar] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -246,6 +248,7 @@ export default function ChatRoom() {
 
     return () => {
       socket.off('receive-message');
+      socket.off('chat-history-cleared');
       socket.off('user-joined');
       socket.off('user-left');
       socket.off('online-count');
@@ -405,6 +408,13 @@ export default function ChatRoom() {
       setRoom((prev) => prev ? { ...prev, messages: [...prev.messages, message] } : prev);
     });
 
+    // Sanu cleared the chat — wipe messages for everyone in the room, and
+    // drop any in-progress reply quote since its target is now gone.
+    socket.on('chat-history-cleared', () => {
+      setRoom((prev) => prev ? { ...prev, messages: [] } : prev);
+      setReplyingTo(null);
+    });
+
     socket.on('user-joined', (user) => {
       // Defensive de-dupe: if a duplicate 'user-joined' ever arrives for
       // someone already in the list (e.g. an old event delivered late),
@@ -536,14 +546,40 @@ export default function ChatRoom() {
     e.preventDefault();
     if (!inputText.trim()) return;
     const text = inputText;
+    const activeReply = replyingTo;
     setInputText('');
+    setReplyingTo(null);
     setSendError('');
     stopTyping();
-    sendWhenReady(text, (response) => {
+    // Only send as { text, replyTo } when actually replying — plain
+    // string payloads still work exactly as before for a normal message,
+    // so this doesn't change behavior for the common case.
+    const payload = activeReply ? { text, replyTo: activeReply.id } : text;
+    sendWhenReady(payload, (response) => {
       if (response && response.error) {
         console.error(response.error);
         setSendError(response.error);
         setInputText(text);
+        if (activeReply) setReplyingTo(activeReply);
+      }
+    });
+  };
+
+  const handleReplyTo = (msg) => {
+    setReplyingTo({
+      id: msg.id,
+      nickname: msg.userId === socket.id ? 'You' : msg.nickname,
+      text: msg.type === 'text' ? msg.text : `[${msg.type}]`,
+      type: msg.type
+    });
+  };
+
+  const handleClearHistory = () => {
+    setClearingHistory(true);
+    socket.emit('admin-clear-history', null, (response) => {
+      setClearingHistory(false);
+      if (response?.error) {
+        setError(response.error);
       }
     });
   };
@@ -937,6 +973,21 @@ export default function ChatRoom() {
                 <span className="hidden sm:inline">{copied ? 'Copied!' : 'Share'}</span>
               </button>
             )}
+            {isHost && (
+              <button
+                onClick={() => {
+                  if (window.confirm('Clear all chat history for everyone in this room? This cannot be undone.')) {
+                    handleClearHistory();
+                  }
+                }}
+                disabled={clearingHistory}
+                className="flex items-center gap-2 px-4 py-2 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-white rounded-xl text-sm font-semibold transition-colors border border-zinc-700 disabled:opacity-50"
+                title="Clear Chat History"
+              >
+                {clearingHistory ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                <span className="hidden sm:inline">Clear History</span>
+              </button>
+            )}
             {isHost ? (
               <button
                 onClick={() => {
@@ -1108,7 +1159,7 @@ export default function ChatRoom() {
                 const showHeader = idx === 0 || room.messages[idx - 1].userId !== msg.userId || (msg.timestamp - room.messages[idx - 1].timestamp > 60000);
 
                 return (
-                  <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                  <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group`}>
                     {showHeader && (
                       <div className={`text-xs text-zinc-500 mb-1.5 flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                         <span className="font-semibold text-zinc-300">{isMe ? 'You' : msg.nickname}</span>
@@ -1120,27 +1171,47 @@ export default function ChatRoom() {
                         </span>
                       </div>
                     )}
-                    <div
-                      className={`max-w-[85%] sm:max-w-[75%] px-5 py-3 break-words shadow-md backdrop-blur-md ${
-                        isMe
-                          ? 'bg-gradient-to-br from-pink-500/80 to-fuchsia-600/80 text-white rounded-2xl rounded-tr-sm font-medium border border-pink-400/30 shadow-[0_5px_15px_rgba(236,72,153,0.3)]'
-                          : 'bg-zinc-800/60 text-zinc-100 rounded-2xl rounded-tl-sm border border-zinc-700/50'
-                      }`}
-                    >
-                      {msg.type === 'image' ? (
-                        <a href={msg.text} target="_blank" rel="noreferrer">
-                          <img src={msg.text} alt="Shared" className="rounded-xl max-h-64 object-contain" />
-                        </a>
-                      ) : msg.type === 'video' ? (
-                        <video
-                          src={msg.text}
-                          controls
-                          preload="metadata"
-                          className="rounded-xl max-h-64 max-w-full"
-                        />
-                      ) : (
-                        msg.text
-                      )}
+                    <div className={`flex items-end gap-1.5 max-w-full ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                      <div
+                        className={`max-w-[85%] sm:max-w-[75%] px-5 py-3 break-words shadow-md backdrop-blur-md ${
+                          isMe
+                            ? 'bg-gradient-to-br from-pink-500/80 to-fuchsia-600/80 text-white rounded-2xl rounded-tr-sm font-medium border border-pink-400/30 shadow-[0_5px_15px_rgba(236,72,153,0.3)]'
+                            : 'bg-zinc-800/60 text-zinc-100 rounded-2xl rounded-tl-sm border border-zinc-700/50'
+                        }`}
+                      >
+                        {msg.replyTo && (
+                          <div
+                            className={`mb-2 pl-2.5 border-l-2 text-xs opacity-80 truncate max-w-[220px] ${
+                              isMe ? 'border-white/50' : 'border-pink-400/60'
+                            }`}
+                          >
+                            <div className="font-semibold">{msg.replyTo.nickname}</div>
+                            <div className="truncate">{msg.replyTo.text}</div>
+                          </div>
+                        )}
+                        {msg.type === 'image' ? (
+                          <a href={msg.text} target="_blank" rel="noreferrer">
+                            <img src={msg.text} alt="Shared" className="rounded-xl max-h-64 object-contain" />
+                          </a>
+                        ) : msg.type === 'video' ? (
+                          <video
+                            src={msg.text}
+                            controls
+                            preload="metadata"
+                            className="rounded-xl max-h-64 max-w-full"
+                          />
+                        ) : (
+                          msg.text
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleReplyTo(msg)}
+                        className="p-1.5 text-zinc-500 hover:text-pink-400 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity shrink-0"
+                        title="Reply"
+                      >
+                        <CornerUpLeft size={15} />
+                      </button>
                     </div>
                   </div>
                 );
@@ -1187,6 +1258,25 @@ export default function ChatRoom() {
                   title="Dismiss"
                 >
                   <X size={14} />
+                </button>
+              </div>
+            )}
+            {replyingTo && (
+              <div className="mb-2 flex items-center justify-between gap-2 bg-zinc-800/60 border border-zinc-700/50 rounded-xl px-3 py-2">
+                <div className="min-w-0 flex items-center gap-2 pl-2 border-l-2 border-pink-400/60">
+                  <CornerUpLeft size={14} className="text-pink-400 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-zinc-300">Replying to {replyingTo.nickname}</div>
+                    <div className="text-xs text-zinc-500 truncate">{replyingTo.text}</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyingTo(null)}
+                  className="p-1 text-zinc-400 hover:text-red-400 shrink-0"
+                  title="Cancel reply"
+                >
+                  <X size={16} />
                 </button>
               </div>
             )}
