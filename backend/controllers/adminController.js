@@ -56,12 +56,28 @@ export const adminController = {
   },
   getRooms: async (req, res) => {
     const rooms = await roomService.getRooms();
-    const roomsList = rooms.map(room => ({
-      code: room.code,
-      name: room.name,
-      members: room.members?.size || 0,
-      maxMembers: room.maxMembers
-    }));
+    const roomsList = rooms.map(room => {
+      // `maxMembers` caps friends, not Sanu's own extra devices (see
+      // friendCount() in chatSocket.js) — report both numbers so the
+      // admin panel doesn't show a confusing "3/2" when Sanu is just
+      // connected from a second device. `members` stays the raw total
+      // (useful as a general "how many sockets right now" figure);
+      // `friends` is the number that's actually being compared to
+      // maxMembers server-side.
+      let friends = 0;
+      if (room.members) {
+        for (const m of room.members.values()) {
+          if (!m.isAdmin) friends++;
+        }
+      }
+      return {
+        code: room.code,
+        name: room.name,
+        members: room.members?.size || 0,
+        friends,
+        maxMembers: room.maxMembers
+      };
+    });
     res.json(roomsList);
   },
   closeRoom: async (req, res) => {
