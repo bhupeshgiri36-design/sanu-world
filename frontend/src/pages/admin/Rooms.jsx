@@ -120,15 +120,15 @@ export default function Rooms() {
                     </div>
                     <div className="flex items-center gap-2 text-sm text-zinc-400">
                       <Users size={14} className="text-pink-400" />
-                      {/* Capacity is friends only — Sanu can be connected
-                          from extra devices (laptop + phone, etc.) without
-                          eating into it, so we compare against `friends`,
-                          not the raw `members` count. Fall back to
-                          `members` for older backends that don't send
-                          `friends` yet. */}
-                      <span>{room.friends ?? room.members} / {room.maxMembers} friends</span>
-                      {room.members > (room.friends ?? room.members) && (
-                        <span className="text-zinc-600">· {room.members} online total</span>
+                      {/* Capacity is a total headcount now — it includes
+                          Sanu's own connections, not just friends. Still
+                          show the friends/total breakdown underneath when
+                          they differ, so Sanu can see at a glance how many
+                          of the occupied seats are guests vs. their own
+                          extra devices. */}
+                      <span>{room.members} / {room.maxMembers} online</span>
+                      {room.friends != null && room.members > room.friends && (
+                        <span className="text-zinc-600">· {room.friends} friend{room.friends === 1 ? '' : 's'}</span>
                       )}
                     </div>
                   </div>
@@ -216,6 +216,9 @@ export default function Rooms() {
                   onChange={(e) => setMaxMembers(e.target.value)}
                   className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 text-white placeholder-zinc-600 transition-all text-sm shadow-inner"
                 />
+                <p className="mt-2 text-xs text-zinc-500 font-normal normal-case">
+                  Total people in the room, including you. E.g. 2 = you + 1 friend.
+                </p>
               </div>
 
               <div>
