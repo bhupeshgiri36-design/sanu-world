@@ -868,7 +868,10 @@ export default function ChatRoom() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-zinc-950 flex flex-col h-[100dvh] max-h-[100dvh] overflow-hidden text-zinc-100">
+    <div
+      className="bg-zinc-950 flex flex-col overflow-hidden text-zinc-100"
+      style={{ height: 'var(--app-height, 100dvh)' }}
+    >
       {/* Header */}
       <header className="bg-zinc-900/80 backdrop-blur-xl border-b border-zinc-800 px-5 py-4 flex flex-col gap-3 shrink-0 z-10 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
         <div className="flex items-center justify-between">
