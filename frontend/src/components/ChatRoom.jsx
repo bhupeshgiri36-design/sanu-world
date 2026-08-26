@@ -1203,7 +1203,19 @@ export default function ChatRoom() {
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-pink-600/10 rounded-full blur-[100px] pointer-events-none" />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-fuchsia-600/10 rounded-full blur-[100px] pointer-events-none" />
 
-          {!isHost && isAdmin === false && (
+          {/* Gated behind !keyboardOpen for the same reason BottomAd/
+              ChatBottomAd already are (see the note lower down): this ad
+              sits in normal document flow, so if it stays mounted while
+              the keyboard is open, its refreshSeconds timer keeps firing
+              every 60s and remounting a fresh ad iframe mid-typing. That
+              iframe reload runs the ad network's script again, which can
+              nudge scroll/viewport state and fight with our
+              visualViewport-driven height tracking — reopening the exact
+              keyboard gap this whole file works to prevent. Unmounting it
+              while the keyboard is up removes that interference at the
+              source, same as it already does for the ads below the
+              composer. */}
+          {!isHost && isAdmin === false && !keyboardOpen && (
             <div className="w-full bg-zinc-900/50 backdrop-blur-md border-b border-zinc-800 flex items-center justify-center shrink-0 z-10 py-2 px-4">
               <TopAd refreshSeconds={60} />
             </div>
