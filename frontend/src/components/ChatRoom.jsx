@@ -156,6 +156,21 @@ export default function ChatRoom() {
     scrollToBottom();
   }, [room?.messages, typingUser]);
 
+  // Locks the page itself from scrolling/panning while the chat is open —
+  // see the `.chat-room-active` rule in index.css for why this has to be a
+  // real CSS lock on <html>/<body> and not just something handled inside
+  // this component's own div. Scoped to this component's lifetime only:
+  // added on mount, removed on unmount, so Landing/Goodbye/JoinRoom (which
+  // rely on normal page scrolling) are unaffected.
+  useEffect(() => {
+    document.documentElement.classList.add('chat-room-active');
+    document.body.classList.add('chat-room-active');
+    return () => {
+      document.documentElement.classList.remove('chat-room-active');
+      document.body.classList.remove('chat-room-active');
+    };
+  }, []);
+
   // `100dvh` alone is not enough to keep the composer glued to the on-screen
   // keyboard: several mobile Chrome/WebView builds don't shrink the dynamic
   // viewport unit when the keyboard opens, only when the URL bar hides, so
