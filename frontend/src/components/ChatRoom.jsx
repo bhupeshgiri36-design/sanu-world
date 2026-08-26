@@ -183,6 +183,12 @@ export default function ChatRoom() {
       // height above, the page itself never needs to scroll, so we snap it
       // back to keep the div flush with the top of the visual viewport.
       window.scrollTo(0, 0);
+      // Whatever the keyboard's exact height ends up being, make sure the
+      // most recent message is still the thing sitting right above the
+      // composer once the resize settles, instead of leaving the message
+      // list scrolled to wherever it happened to be before the keyboard
+      // opened.
+      scrollToBottom();
     };
     updateHeight();
 
@@ -1300,7 +1306,23 @@ export default function ChatRoom() {
 
           {!isHost && isAdmin === false && !keyboardOpen && <ChatBottomAd refreshSeconds={60} />}
 
-          <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-zinc-900 border-t border-zinc-800 shrink-0">
+          <div
+            className="p-4 bg-zinc-900 border-t border-zinc-800 shrink-0"
+            style={{
+              // `env(safe-area-inset-bottom)` exists to clear the gesture
+              // nav bar on notch-less phones. But on Android Chrome, once
+              // the on-screen keyboard is up, that same env() value often
+              // keeps reporting its old (non-zero) reading instead of
+              // resetting to 0 — even though the keyboard now occupies
+              // that space and there's no gesture bar left to clear. The
+              // result: this padding silently adds a slab of dead space
+              // below the input, in the same dark background color as the
+              // composer itself, which is exactly the "gap" showing up in
+              // testing. It's only ever needed when the keyboard is
+              // closed, so we drop it entirely while typing.
+              paddingBottom: keyboardOpen ? '1rem' : 'max(1rem, env(safe-area-inset-bottom))',
+            }}
+          >
             {uploadError && (
               <div className="mb-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
                 {uploadError}
