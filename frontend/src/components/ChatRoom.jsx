@@ -1,4 +1,4 @@
-// frontend/src/components/ChatRoom.jsx
+\// frontend/src/components/ChatRoom.jsx
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -154,20 +154,6 @@ export default function ChatRoom() {
   useEffect(() => {
     scrollToBottom();
   }, [room?.messages, typingUser]);
-
-  // Locks the page itself from scrolling/panning while the chat is open —
-  // see the `.chat-room-active` rule in index.css for why. Scoped to this
-  // component's lifetime only: added on mount, removed on unmount, so
-  // Landing/Goodbye/JoinRoom (which rely on normal page scroll) are
-  // unaffected.
-  useEffect(() => {
-    document.documentElement.classList.add('chat-room-active');
-    document.body.classList.add('chat-room-active');
-    return () => {
-      document.documentElement.classList.remove('chat-room-active');
-      document.body.classList.remove('chat-room-active');
-    };
-  }, []);
 
   // Every send ultimately goes through here instead of calling socket.emit
   // directly. This is what lets us self-heal from the one failure mode the
@@ -930,7 +916,7 @@ export default function ChatRoom() {
   return (
     <div
       className="bg-zinc-950 flex flex-col overflow-hidden text-zinc-100"
-      style={{ height: 'var(--app-height, 100dvh)' }}
+      style={{ height: '100dvh' }}
     >
       {/* Header */}
       <header className="bg-zinc-900/80 backdrop-blur-xl border-b border-zinc-800 px-5 py-4 flex flex-col gap-3 shrink-0 z-10 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
