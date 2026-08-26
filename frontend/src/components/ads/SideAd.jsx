@@ -6,7 +6,7 @@ import { useIsAdmin } from '../../context/AdminContext';
 const SNIPPET = import.meta.env.VITE_SIDE_AD_SNIPPET || '';
 const PROVIDER = import.meta.env.VITE_SIDE_AD_PROVIDER || 'adsterra';
 
-export default function SideAd() {
+export default function SideAd({ refreshSeconds }) {
   const isAdmin = useIsAdmin();
   const hide = isAdmin !== false;
 
@@ -18,7 +18,7 @@ export default function SideAd() {
 
   return (
     <div className="hidden xl:flex w-[160px]">
-      <AdSlot snippetHtml={SNIPPET} nativeWidth={160} nativeHeight={600} />
+      <AdSlot snippetHtml={SNIPPET} nativeWidth={160} nativeHeight={600} refreshSeconds={refreshSeconds} />
     </div>
   );
 }
