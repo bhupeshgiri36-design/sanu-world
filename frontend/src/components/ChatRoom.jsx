@@ -15,6 +15,7 @@ import MusicSearch from './music/MusicSearch';
 import MusicPlayer from './music/MusicPlayer';
 import { adminFetch, uploadMedia } from '../lib/api';
 import { useIsAdmin } from '../context/AdminContext';
+import useKeyboardOpen from '../hooks/useKeyboardOpen';
 
 // How long after the last keystroke we tell the room "stopped typing" if no
 // further typing or send happens.
@@ -166,6 +167,7 @@ export default function ChatRoom() {
   // the root container directly. Falls back to `100dvh` (via `viewportH ??`)
   // on browsers without the VisualViewport API.
   const [viewportH, setViewportH] = useState(null);
+  const keyboardOpen = useKeyboardOpen();
 
   useEffect(() => {
     const vv = window.visualViewport;
@@ -1281,17 +1283,22 @@ export default function ChatRoom() {
             <div ref={messagesEndRef} />
           </div>
 
-          {!isHost && isAdmin === false && (
+          {/* Both ad strips below the message list are hidden while the
+              on-screen keyboard is open. They sit in normal document flow
+              (not position:fixed), so when the keyboard opens and shrinks
+              the usable viewport, keeping them mounted eats into the
+              space the message list and composer have to work with and is
+              exactly what was producing the dead gap between the input
+              and the keyboard. Hiding them frees that space back up and
+              matches how most chat apps behave — ads step aside while
+              you're actively typing, and reappear once you're done. */}
+          {!isHost && isAdmin === false && !keyboardOpen && (
             <div className="w-full bg-zinc-900/50 backdrop-blur-md border-t border-zinc-800 flex items-center justify-center shrink-0 z-10 py-2 px-4">
               <BottomAd refreshSeconds={60} />
             </div>
           )}
 
-          {/* NEW: slim ad strip directly above the message input. Not
-              sticky/fixed — sits in normal flow between BottomAd and the
-              input bar, so it never fights StickyMobileAd (mounted on
-              Landing.jsx) for space, and never covers the message list. */}
-          {!isHost && isAdmin === false && <ChatBottomAd refreshSeconds={60} />}
+          {!isHost && isAdmin === false && !keyboardOpen && <ChatBottomAd refreshSeconds={60} />}
 
           <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-zinc-900 border-t border-zinc-800 shrink-0">
             {uploadError && (
