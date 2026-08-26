@@ -5,6 +5,13 @@ import { motion } from 'motion/react';
 import { API_ORIGIN } from '../lib/config';
 import TopAd from './ads/TopAd';
 import BottomAd from './ads/BottomAd';
+import MidAd from './ads/MidAd';
+import LeaderboardAd from './ads/LeaderboardAd';
+import StickyMobileAd from './ads/StickyMobileAd';
+// NOTE: PopunderAd is deliberately NOT imported here. Mounting it on this
+// page previously caused a bug where typing in the code/nickname fields
+// sent the user to another page — see VITE_POPUNDER_SNIPPET comment in
+// .env. Keep popunder off any page with a text input.
 
 export default function JoinRoom() {
   const navigate = useNavigate();
@@ -120,6 +127,7 @@ export default function JoinRoom() {
             </div>
           )}
 
+          {step === 1 && <LeaderboardAd />}
           {step === 2 && <TopAd />}
 
           {step === 1 ? (
@@ -195,8 +203,10 @@ export default function JoinRoom() {
           )}
 
           {step === 2 && <BottomAd />}
+          {step === 2 && <MidAd />}
         </motion.div>
       </div>
+      <StickyMobileAd />
     </div>
   );
 }
