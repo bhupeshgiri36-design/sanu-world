@@ -53,10 +53,46 @@ export default function useKeyboardOpen() {
 
     const target = vv || window;
     target.addEventListener('resize', check);
-    if (vv) vv.addEventListener('scroll', check);
+    if (vv) {
+      vv.addEventListener('scroll', check);
+      // If VisualViewport exists but this WebView still doesn't fire its
+      // resize event reliably (seen in Telegram's in-app browser), a
+      // plain window resize is a second chance to catch the same change.
+      window.addEventListener('resize', check);
+    }
+
+    // Belt-and-suspenders: some in-app browsers fire NEITHER of the above
+    // when the keyboard opens/closes — the height only updates a beat
+    // later with no event at all to hook. Poll briefly right after any
+    // text input gains/loses focus so we still catch it.
+    let pollTimer = null;
+    const pollFor = (ms) => {
+      const stopAt = Date.now() + ms;
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(() => {
+        check();
+        if (Date.now() > stopAt) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+      }, 120);
+    };
+    const onFocusChange = (e) => {
+      const tag = e.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') pollFor(1500);
+    };
+    document.addEventListener('focusin', onFocusChange);
+    document.addEventListener('focusout', onFocusChange);
+
     return () => {
       target.removeEventListener('resize', check);
-      if (vv) vv.removeEventListener('scroll', check);
+      if (vv) {
+        vv.removeEventListener('scroll', check);
+        window.removeEventListener('resize', check);
+      }
+      document.removeEventListener('focusin', onFocusChange);
+      document.removeEventListener('focusout', onFocusChange);
+      if (pollTimer) clearInterval(pollTimer);
     };
   }, []);
 
