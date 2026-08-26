@@ -9,6 +9,7 @@ import TopAd from './ads/TopAd';
 import BottomAd from './ads/BottomAd';
 import SideAd from './ads/SideAd';
 import ChatBottomAd from './ads/ChatBottomAd';
+import NativeAd from './ads/NativeAd';
 import MusicSearch from './music/MusicSearch';
 import MusicPlayer from './music/MusicPlayer';
 import { adminFetch, uploadMedia } from '../lib/api';
@@ -1158,8 +1159,19 @@ export default function ChatRoom() {
                 const isMe = msg.userId === socket.id;
                 const showHeader = idx === 0 || room.messages[idx - 1].userId !== msg.userId || (msg.timestamp - room.messages[idx - 1].timestamp > 60000);
 
+                // Every 10 messages, drop a native ad into the feed itself —
+                // this is the highest-dwell-time surface in the app, so it's
+                // the one place an in-feed placement actually gets seen
+                // repeatedly during a single visit instead of just once on
+                // page load. Skipped for the host/admin so Sanu's own view
+                // of the room stays clean, and skipped on message 0 so the
+                // feed never opens on an ad before there's any real content.
+                const showFeedAd = idx > 0 && idx % 10 === 9 && !isHost && isAdmin === false;
+
                 return (
-                  <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group`}>
+                  <React.Fragment key={msg.id}>
+                  {showFeedAd && <NativeAd />}
+                  <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group`}>
                     {showHeader && (
                       <div className={`text-xs text-zinc-500 mb-1.5 flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                         <span className="font-semibold text-zinc-300">{isMe ? 'You' : msg.nickname}</span>
@@ -1214,6 +1226,7 @@ export default function ChatRoom() {
                       </button>
                     </div>
                   </div>
+                  </React.Fragment>
                 );
               })
             )}
