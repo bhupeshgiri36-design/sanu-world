@@ -155,6 +155,20 @@ export default function ChatRoom() {
     scrollToBottom();
   }, [room?.messages, typingUser]);
 
+  // Locks the page itself from scrolling/panning while the chat is open —
+  // see the `.chat-room-active` rule in index.css for why. Scoped to this
+  // component's lifetime only: added on mount, removed on unmount, so
+  // Landing/Goodbye/JoinRoom (which rely on normal page scroll) are
+  // unaffected.
+  useEffect(() => {
+    document.documentElement.classList.add('chat-room-active');
+    document.body.classList.add('chat-room-active');
+    return () => {
+      document.documentElement.classList.remove('chat-room-active');
+      document.body.classList.remove('chat-room-active');
+    };
+  }, []);
+
   // Every send ultimately goes through here instead of calling socket.emit
   // directly. This is what lets us self-heal from the one failure mode the
   // connection-epoch guard (see connectionEpochRef above) can't catch:
