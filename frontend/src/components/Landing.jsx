@@ -80,7 +80,7 @@ export default function Landing() {
         {/* Top banner — first thing visible after the navbar, catches
             every homepage visitor before they scroll. */}
         <div className="max-w-3xl mx-auto w-full px-6 pt-6">
-          <TopAd />
+          <TopAd refreshSeconds={60} />
         </div>
         
         {/* Hero Section */}
@@ -163,14 +163,14 @@ export default function Landing() {
 
           {/* Side rail ad — desktop-only (SideAd hides itself below xl),
               sits as a third column next to the hero content. */}
-          <SideAd />
+          <SideAd refreshSeconds={60} />
         </motion.section>
 
         {/* Homepage ad — real NativeAd component now, was a static
             placeholder div before. NativeAd already hides itself for
             admin via useIsAdmin(), no extra check needed here. */}
         <div className="max-w-3xl mx-auto w-full px-6 py-10">
-          <NativeAd />
+          <NativeAd refreshSeconds={60} />
         </div>
 
         {/* Profile Section */}
@@ -213,7 +213,7 @@ export default function Landing() {
             audience from the top-of-page NativeAd impression. Own
             env vars/placement so this is tracked separately. */}
         <div className="max-w-3xl mx-auto w-full px-6 pb-10">
-          <MidAd />
+          <MidAd refreshSeconds={60} />
         </div>
 
       </div>
@@ -221,7 +221,7 @@ export default function Landing() {
       {/* Bottom banner — last thing before the footer, catches visitors
           who scrolled all the way through. */}
       <div className="max-w-3xl mx-auto w-full px-6 py-6 relative z-10">
-        <BottomAd />
+        <BottomAd refreshSeconds={60} />
       </div>
 
       {/* Footer */}
