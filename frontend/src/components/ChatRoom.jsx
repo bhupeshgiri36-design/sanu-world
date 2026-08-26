@@ -1145,7 +1145,7 @@ export default function ChatRoom() {
 
           {!isHost && isAdmin === false && (
             <div className="w-full bg-zinc-900/50 backdrop-blur-md border-b border-zinc-800 flex items-center justify-center shrink-0 z-10 py-2 px-4">
-              <TopAd />
+              <TopAd refreshSeconds={60} />
             </div>
           )}
 
@@ -1246,7 +1246,7 @@ export default function ChatRoom() {
 
           {!isHost && isAdmin === false && (
             <div className="w-full bg-zinc-900/50 backdrop-blur-md border-t border-zinc-800 flex items-center justify-center shrink-0 z-10 py-2 px-4">
-              <BottomAd />
+              <BottomAd refreshSeconds={60} />
             </div>
           )}
 
@@ -1254,7 +1254,7 @@ export default function ChatRoom() {
               sticky/fixed — sits in normal flow between BottomAd and the
               input bar, so it never fights StickyMobileAd (mounted on
               Landing.jsx) for space, and never covers the message list. */}
-          {!isHost && isAdmin === false && <ChatBottomAd />}
+          {!isHost && isAdmin === false && <ChatBottomAd refreshSeconds={60} />}
 
           <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-zinc-900 border-t border-zinc-800 shrink-0">
             {uploadError && (
@@ -1336,7 +1336,7 @@ export default function ChatRoom() {
         {/* Side rail ad — only visible on wide desktop screens (SideAd is
             "hidden xl:flex" internally) and only for real visitors, so it
             never shows up on mobile and never shows for the host/admin. */}
-        {!isHost && isAdmin === false && <SideAd />}
+        {!isHost && isAdmin === false && <SideAd refreshSeconds={60} />}
 
         {/* Sidebar */}
         <aside
@@ -1357,7 +1357,7 @@ export default function ChatRoom() {
               <X size={20} />
             </button>
           </div>
-          {!isHost && isAdmin === false && <SkyscraperAd />}
+          {!isHost && isAdmin === false && <SkyscraperAd refreshSeconds={60} />}
           <div className="flex-1 overflow-y-auto p-3">
             <ul className="space-y-1">
               {room.members.map(member => (
