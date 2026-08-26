@@ -12,7 +12,7 @@ import { useIsAdmin } from '../../context/AdminContext';
 const SNIPPET = import.meta.env.VITE_CHAT_BOTTOM_AD_SNIPPET || '';
 const PROVIDER = import.meta.env.VITE_CHAT_BOTTOM_AD_PROVIDER || 'adsterra';
 
-export default function ChatBottomAd() {
+export default function ChatBottomAd({ refreshSeconds }) {
   const isAdmin = useIsAdmin();
   const hide = isAdmin !== false;
 
@@ -33,6 +33,7 @@ export default function ChatBottomAd() {
         snippetHtml={SNIPPET}
         nativeWidth={320}
         nativeHeight={50}
+        refreshSeconds={refreshSeconds}
       />
     </div>
   );
