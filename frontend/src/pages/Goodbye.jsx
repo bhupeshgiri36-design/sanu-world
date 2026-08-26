@@ -43,7 +43,7 @@ export default function Goodbye() {
         {/* Only rendered for friends — TopAd hides itself automatically
             if this is ever loaded in an admin browser session. */}
         <div className="w-full mb-8">
-          <TopAd />
+          <TopAd refreshSeconds={60} />
         </div>
 
         <a
@@ -63,7 +63,7 @@ export default function Goodbye() {
         </button>
 
         <div className="mt-6 w-full">
-          <BottomAd />
+          <BottomAd refreshSeconds={60} />
         </div>
 
         <div className="mt-2">
@@ -71,7 +71,7 @@ export default function Goodbye() {
         </div>
 
         <div className="mt-6 w-full">
-          <MidAd />
+          <MidAd refreshSeconds={60} />
         </div>
       </motion.div>
 
