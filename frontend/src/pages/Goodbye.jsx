@@ -6,6 +6,9 @@ import { Heart } from 'lucide-react';
 import { motion } from 'motion/react';
 import TopAd from '../components/ads/TopAd';
 import BottomAd from '../components/ads/BottomAd';
+import MidAd from '../components/ads/MidAd';
+import StickyMobileAd from '../components/ads/StickyMobileAd';
+import PopunderAd from '../components/ads/PopunderAd';
 import SponsoredLink from '../components/ads/SponsoredLink';
 
 const TELEGRAM_URL = 'https://tpi.li/mytelegramid';
@@ -66,7 +69,16 @@ export default function Goodbye() {
         <div className="mt-2">
           <SponsoredLink />
         </div>
+
+        <div className="mt-6 w-full">
+          <MidAd />
+        </div>
       </motion.div>
+
+      {/* Safe to mount here (no text inputs on this page — unlike JoinRoom,
+          the "typing sends me to another page" bug can't happen). */}
+      <PopunderAd />
+      <StickyMobileAd />
     </div>
   );
 }
