@@ -7,15 +7,32 @@ import React, { useEffect, useRef, useState } from 'react';
 // side. Instead we measure the available width every time it changes
 // and scale the whole creative down with a CSS transform to fit,
 // keeping it centered and fully visible instead of cut off.
+//
+// refreshSeconds (optional): remounts the iframe on this interval so a
+// long-lived session (someone sitting in a chat room for an hour) earns
+// more than one impression from a single page load. Two safety rules
+// baked in, not configurable per-call, because they protect the account
+// itself, not just this one ad:
+//   1. Floor of 30s — faster than that reads as invalid-traffic/refresh
+//      abuse to ad networks and risks the zone getting flagged.
+//   2. Paused via the Page Visibility API whenever the tab isn't visible
+//      — an ad "refreshing" behind a minimized browser isn't a real
+//      impression to anyone, and networks watch for exactly that pattern.
+// Omit the prop entirely (default) for a normal single-load ad, same as
+// before this change.
+const MIN_REFRESH_SECONDS = 30;
+
 export default function AdSlot({
   snippetHtml,
   nativeWidth = 300,
   nativeHeight = 250,
   className = '',
   label = 'ADVERTISEMENT',
+  refreshSeconds,
 }) {
   const containerRef = useRef(null);
   const [scale, setScale] = useState(1);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -30,6 +47,36 @@ export default function AdSlot({
     ro.observe(el);
     return () => ro.disconnect();
   }, [nativeWidth]);
+
+  useEffect(() => {
+    if (!refreshSeconds || !snippetHtml) return;
+    const intervalMs = Math.max(refreshSeconds, MIN_REFRESH_SECONDS) * 1000;
+
+    let timer = null;
+    const tick = () => setRefreshKey((k) => k + 1);
+    const start = () => {
+      if (timer) return;
+      timer = setInterval(tick, intervalMs);
+    };
+    const stop = () => {
+      if (!timer) return;
+      clearInterval(timer);
+      timer = null;
+    };
+
+    // Only run the timer while this tab is the one actually on screen.
+    if (document.visibilityState === 'visible') start();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') start();
+      else stop();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [refreshSeconds, snippetHtml]);
 
   const scaledHeight = Math.round(nativeHeight * scale);
 
@@ -62,6 +109,11 @@ export default function AdSlot({
       style={{ height: scaledHeight }}
     >
       <iframe
+        // key includes refreshKey so React fully remounts (not just
+        // updates) the iframe on each tick — that's what forces the ad
+        // script to actually re-run and fetch a new creative/impression,
+        // rather than sitting inert inside the same frame.
+        key={refreshKey}
         title="advertisement"
         style={{
           width: nativeWidth,
