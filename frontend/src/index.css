@@ -8,3 +8,25 @@
 body {
   font-family: var(--font-sans);
 }
+
+/* Applied only while ChatRoom is mounted (see ChatRoom.jsx, which adds
+   this class to <html>/<body> on mount and removes it on unmount) — NOT
+   global, because Landing/Goodbye/JoinRoom rely on normal page scrolling.
+
+   Locks the page itself from scrolling/panning independently of the chat
+   layout. Without this, the browser's native "scroll focused input into
+   view" behavior moves the whole document at the same time our
+   visualViewport-driven height resize (see ChatRoom.jsx) resizes
+   ChatRoom's own container — two separate mechanisms both reacting to the
+   keyboard opening, fighting each other on every keystroke. That fight is
+   what leaves a blank strip of body background between the composer and
+   the keyboard. With the page itself pinned, ChatRoom's own height is the
+   only thing that moves, so there's exactly one source of truth. */
+html.chat-room-active,
+body.chat-room-active {
+  height: 100%;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  overscroll-behavior: none;
+}
