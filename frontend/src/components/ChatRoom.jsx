@@ -1317,6 +1317,12 @@ export default function ChatRoom() {
                 onChange={handleInputChange}
                 onBlur={stopTyping}
                 placeholder="Type a message..."
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="sentences"
+                name="chat-message"
+                data-lpignore="true"
+                data-1p-ignore="true"
                 className="flex-1 min-w-0 px-5 py-3.5 h-[52px] bg-zinc-950 border border-zinc-800 focus:bg-zinc-950 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 rounded-2xl transition-all outline-none text-zinc-100 placeholder-zinc-500"
                 maxLength={1000}
               />
