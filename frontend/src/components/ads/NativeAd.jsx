@@ -6,7 +6,7 @@ import { useIsAdmin } from '../../context/AdminContext';
 const SNIPPET = import.meta.env.VITE_NATIVE_AD_SNIPPET || '';
 const PROVIDER = import.meta.env.VITE_NATIVE_AD_PROVIDER || 'adsterra';
 
-export default function NativeAd() {
+export default function NativeAd({ refreshSeconds }) {
   const isAdmin = useIsAdmin();
   const hide = isAdmin !== false;
 
@@ -30,6 +30,7 @@ export default function NativeAd() {
       nativeHeight={300}
       className="w-full my-4"
       label="SPONSORED"
+      refreshSeconds={refreshSeconds}
     />
   );
 }
