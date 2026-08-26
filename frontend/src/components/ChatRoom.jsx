@@ -10,6 +10,7 @@ import BottomAd from './ads/BottomAd';
 import SideAd from './ads/SideAd';
 import ChatBottomAd from './ads/ChatBottomAd';
 import NativeAd from './ads/NativeAd';
+import SkyscraperAd from './ads/SkyscraperAd';
 import MusicSearch from './music/MusicSearch';
 import MusicPlayer from './music/MusicPlayer';
 import { adminFetch, uploadMedia } from '../lib/api';
@@ -1356,6 +1357,7 @@ export default function ChatRoom() {
               <X size={20} />
             </button>
           </div>
+          {!isHost && isAdmin === false && <SkyscraperAd />}
           <div className="flex-1 overflow-y-auto p-3">
             <ul className="space-y-1">
               {room.members.map(member => (
