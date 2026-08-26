@@ -2,13 +2,19 @@ import React from 'react';
 import AdSlot from './AdSlot.jsx';
 import { adService } from '../../services/adService.js';
 import { useIsAdmin } from '../../context/AdminContext';
+import useKeyboardOpen from '../../hooks/useKeyboardOpen';
  
 const SNIPPET = import.meta.env.VITE_STICKY_AD_SNIPPET || '';
 const PROVIDER = import.meta.env.VITE_STICKY_AD_PROVIDER || 'adsterra';
  
 export default function StickyMobileAd() {
   const isAdmin = useIsAdmin();
-  const hide = isAdmin !== false;
+  // This bar is `position: fixed` to the bottom of the layout viewport,
+  // which doesn't move when the on-screen keyboard opens — left visible
+  // it either sits on top of the keyboard or leaves a dead strip of space
+  // where it used to be. Hide it for the duration of typing instead.
+  const keyboardOpen = useKeyboardOpen();
+  const hide = isAdmin !== false || keyboardOpen;
  
   React.useEffect(() => {
     if (SNIPPET && !hide) adService.recordImpression(PROVIDER, 'sticky_mobile');
