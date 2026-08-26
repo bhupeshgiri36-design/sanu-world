@@ -186,10 +186,10 @@ export default function ChatRoom() {
 
   useEffect(() => {
     const vv = window.visualViewport;
-    if (!vv) return;
+    const getHeight = () => (vv ? vv.height : window.innerHeight);
 
     const updateHeight = () => {
-      setViewportH(vv.height);
+      setViewportH(getHeight());
       // The keyboard opening also makes Chrome scroll the *document* so the
       // focused input stays in view. Our root div isn't position:fixed, so
       // if the page scrolls, the div (and the composer inside it) drifts
@@ -207,11 +207,50 @@ export default function ChatRoom() {
     };
     updateHeight();
 
-    vv.addEventListener('resize', updateHeight);
-    vv.addEventListener('scroll', updateHeight);
+    // Primary signal: VisualViewport resize/scroll. Works in real Chrome.
+    if (vv) {
+      vv.addEventListener('resize', updateHeight);
+      vv.addEventListener('scroll', updateHeight);
+    }
+    // Secondary signal: plain window resize. Some embedded/in-app
+    // WebViews (Telegram's Android in-app browser being the one we've
+    // actually seen this on) don't fire VisualViewport events on keyboard
+    // open at all, but still fire a window resize.
+    window.addEventListener('resize', updateHeight);
+
+    // Tertiary signal: short polling burst right after the message input
+    // gains or loses focus. In some in-app browsers, NEITHER of the above
+    // events fires when the keyboard opens — the viewport height only
+    // changes a moment later with nothing to listen for. Polling for
+    // ~1.5s after every focus change catches that resize whenever it
+    // actually happens, without polling all the time and draining battery.
+    let pollTimer = null;
+    const pollFor = (ms) => {
+      const stopAt = Date.now() + ms;
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(() => {
+        updateHeight();
+        if (Date.now() > stopAt) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+      }, 120);
+    };
+    const onFocusChange = (e) => {
+      if (e.target?.name === 'chat-message') pollFor(1500);
+    };
+    document.addEventListener('focusin', onFocusChange);
+    document.addEventListener('focusout', onFocusChange);
+
     return () => {
-      vv.removeEventListener('resize', updateHeight);
-      vv.removeEventListener('scroll', updateHeight);
+      if (vv) {
+        vv.removeEventListener('resize', updateHeight);
+        vv.removeEventListener('scroll', updateHeight);
+      }
+      window.removeEventListener('resize', updateHeight);
+      document.removeEventListener('focusin', onFocusChange);
+      document.removeEventListener('focusout', onFocusChange);
+      if (pollTimer) clearInterval(pollTimer);
     };
   }, []);
 
