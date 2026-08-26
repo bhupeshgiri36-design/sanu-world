@@ -9,7 +9,7 @@ import { useIsAdmin } from '../../context/AdminContext';
 const SNIPPET = import.meta.env.VITE_SKYSCRAPER_AD_SNIPPET || '';
 const PROVIDER = import.meta.env.VITE_SKYSCRAPER_AD_PROVIDER || 'adsterra';
 
-export default function SkyscraperAd() {
+export default function SkyscraperAd({ refreshSeconds }) {
   const isAdmin = useIsAdmin();
   const hide = isAdmin !== false;
 
@@ -26,6 +26,7 @@ export default function SkyscraperAd() {
         nativeWidth={160}
         nativeHeight={300}
         label="SPONSORED"
+        refreshSeconds={refreshSeconds}
       />
     </div>
   );
