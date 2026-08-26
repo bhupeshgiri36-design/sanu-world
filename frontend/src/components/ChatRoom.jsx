@@ -171,57 +171,64 @@ export default function ChatRoom() {
     };
   }, []);
 
-  // `100dvh` alone is not enough to keep the composer glued to the on-screen
-  // keyboard: several mobile Chrome/WebView builds don't shrink the dynamic
-  // viewport unit when the keyboard opens, only when the URL bar hides, so
-  // the whole layout (and the input bar with it) stays sized as if the
-  // keyboard weren't there and a gap opens up between the input and the
-  // keyboard. `window.visualViewport` fires resize events with the actual
-  // visible height whenever the keyboard shows/hides, regardless of dvh
-  // support, so we mirror that into a bit of local state and use it to size
-  // the root container directly. Falls back to `100dvh` (via `viewportH ??`)
-  // on browsers without the VisualViewport API.
-  const [viewportH, setViewportH] = useState(null);
+  // --- Keyboard-safe viewport tracking -------------------------------
+  // `100dvh` and a plain `height: visualViewport.height` state (the old
+  // approach) both fail on real devices for the same underlying reason:
+  // the container is a normal, statically-positioned block sitting in
+  // document flow. When the on-screen keyboard opens, the browser (or an
+  // in-app WebView like Telegram's) also tries to scroll the *document*
+  // itself to keep the focused input in view. If that auto-scroll happens
+  // even a moment after our own `window.scrollTo(0, 0)` correction, the
+  // container — sized correctly, but no longer pinned to the top of the
+  // screen — drifts upward relative to what's actually visible, and the
+  // space below it opens up as a blank gap between the composer and the
+  // keyboard.
+  //
+  // The fix is to stop trying to win that race with scroll correction and
+  // instead pin the container with `position: fixed`, anchored to
+  // `visualViewport.offsetTop`. A fixed element's position is anchored to
+  // the layout viewport, not to document scroll position, so no amount of
+  // document scrolling — however late, however slow the WebView is to
+  // settle — can make it drift. We track `{ top, height }` together so a
+  // single state update captures the whole visible rectangle at once.
+  const [viewportRect, setViewportRect] = useState({ top: 0, height: null });
   const keyboardOpen = useKeyboardOpen();
 
   useEffect(() => {
     const vv = window.visualViewport;
-    const getHeight = () => (vv ? vv.height : window.innerHeight);
 
-    const updateHeight = () => {
-      setViewportH(getHeight());
-      // The keyboard opening also makes Chrome scroll the *document* so the
-      // focused input stays in view. Our root div isn't position:fixed, so
-      // if the page scrolls, the div (and the composer inside it) drifts
-      // upward with it, exposing blank body background beneath it — that's
-      // the gap. Since we already resize the div to the true visible
-      // height above, the page itself never needs to scroll, so we snap it
-      // back to keep the div flush with the top of the visual viewport.
-      window.scrollTo(0, 0);
+    const updateRect = () => {
+      if (vv) {
+        setViewportRect({ top: vv.offsetTop, height: vv.height });
+      } else {
+        setViewportRect({ top: 0, height: window.innerHeight });
+      }
       // Whatever the keyboard's exact height ends up being, make sure the
       // most recent message is still the thing sitting right above the
       // composer once the resize settles, instead of leaving the message
       // list scrolled to wherever it happened to be before the keyboard
-      // opened.
+      // opened. (No more window.scrollTo(0, 0) here — with the container
+      // pinned via position: fixed, document scroll position no longer
+      // matters for layout.)
       scrollToBottom();
     };
-    updateHeight();
+    updateRect();
 
     // Primary signal: VisualViewport resize/scroll. Works in real Chrome.
     if (vv) {
-      vv.addEventListener('resize', updateHeight);
-      vv.addEventListener('scroll', updateHeight);
+      vv.addEventListener('resize', updateRect);
+      vv.addEventListener('scroll', updateRect);
     }
     // Secondary signal: plain window resize. Some embedded/in-app
     // WebViews (Telegram's Android in-app browser being the one we've
     // actually seen this on) don't fire VisualViewport events on keyboard
     // open at all, but still fire a window resize.
-    window.addEventListener('resize', updateHeight);
+    window.addEventListener('resize', updateRect);
 
     // Tertiary signal: short polling burst right after the message input
     // gains or loses focus. In some in-app browsers, NEITHER of the above
-    // events fires when the keyboard opens — the viewport height only
-    // changes a moment later with nothing to listen for. Polling for
+    // events fires when the keyboard opens — the viewport height/offset
+    // only changes a moment later with nothing to listen for. Polling for
     // ~1.5s after every focus change catches that resize whenever it
     // actually happens, without polling all the time and draining battery.
     let pollTimer = null;
@@ -229,7 +236,7 @@ export default function ChatRoom() {
       const stopAt = Date.now() + ms;
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(() => {
-        updateHeight();
+        updateRect();
         if (Date.now() > stopAt) {
           clearInterval(pollTimer);
           pollTimer = null;
@@ -244,10 +251,10 @@ export default function ChatRoom() {
 
     return () => {
       if (vv) {
-        vv.removeEventListener('resize', updateHeight);
-        vv.removeEventListener('scroll', updateHeight);
+        vv.removeEventListener('resize', updateRect);
+        vv.removeEventListener('scroll', updateRect);
       }
-      window.removeEventListener('resize', updateHeight);
+      window.removeEventListener('resize', updateRect);
       document.removeEventListener('focusin', onFocusChange);
       document.removeEventListener('focusout', onFocusChange);
       if (pollTimer) clearInterval(pollTimer);
@@ -1015,7 +1022,11 @@ export default function ChatRoom() {
   return (
     <div
       className="bg-zinc-950 flex flex-col overflow-hidden text-zinc-100"
-      style={{ height: viewportH ? `${viewportH}px` : '100dvh' }}
+      style={
+        viewportRect.height
+          ? { position: 'fixed', top: viewportRect.top, left: 0, width: '100%', height: viewportRect.height }
+          : { position: 'relative', height: '100dvh' }
+      }
     >
       {/* Header */}
       <header className="bg-zinc-900/80 backdrop-blur-xl border-b border-zinc-800 px-5 py-4 flex flex-col gap-3 shrink-0 z-10 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
