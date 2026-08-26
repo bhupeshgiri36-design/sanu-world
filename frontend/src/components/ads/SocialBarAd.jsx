@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useIsAdmin } from '../../context/AdminContext';
+import useKeyboardOpen from '../../hooks/useKeyboardOpen';
 
 const SNIPPET = import.meta.env.VITE_SOCIAL_BAR_SNIPPET || '';
 
@@ -16,6 +17,14 @@ const SNIPPET = import.meta.env.VITE_SOCIAL_BAR_SNIPPET || '';
 // never redirects the current tab, so it's safe to mount globally.
 export default function SocialBarAd() {
   const isAdmin = useIsAdmin();
+  // The network docks this widget with its own fixed positioning, which
+  // (like StickyMobileAd) doesn't track the on-screen keyboard and ends
+  // up floating over it or leaving a gap. We can't unmount-and-remount the
+  // script every time the keyboard opens/closes without burning a fresh
+  // impression each time, so instead we keep the injected container in a
+  // ref and just toggle its visibility.
+  const keyboardOpen = useKeyboardOpen();
+  const containerRef = useRef(null);
 
   useEffect(() => {
     if (!SNIPPET || isAdmin !== false) return;
@@ -36,11 +45,19 @@ export default function SocialBarAd() {
     }
     container.appendChild(script);
     document.body.appendChild(container);
+    containerRef.current = container;
 
     return () => {
       document.body.removeChild(container);
+      containerRef.current = null;
     };
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.style.display = keyboardOpen ? 'none' : '';
+    }
+  }, [keyboardOpen]);
 
   return null;
 }
