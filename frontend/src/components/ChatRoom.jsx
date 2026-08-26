@@ -1,4 +1,4 @@
-\// frontend/src/components/ChatRoom.jsx
+// frontend/src/components/ChatRoom.jsx
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
