@@ -155,6 +155,43 @@ export default function ChatRoom() {
     scrollToBottom();
   }, [room?.messages, typingUser]);
 
+  // `100dvh` alone is not enough to keep the composer glued to the on-screen
+  // keyboard: several mobile Chrome/WebView builds don't shrink the dynamic
+  // viewport unit when the keyboard opens, only when the URL bar hides, so
+  // the whole layout (and the input bar with it) stays sized as if the
+  // keyboard weren't there and a gap opens up between the input and the
+  // keyboard. `window.visualViewport` fires resize events with the actual
+  // visible height whenever the keyboard shows/hides, regardless of dvh
+  // support, so we mirror that into a bit of local state and use it to size
+  // the root container directly. Falls back to `100dvh` (via `viewportH ??`)
+  // on browsers without the VisualViewport API.
+  const [viewportH, setViewportH] = useState(null);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const updateHeight = () => {
+      setViewportH(vv.height);
+      // The keyboard opening also makes Chrome scroll the *document* so the
+      // focused input stays in view. Our root div isn't position:fixed, so
+      // if the page scrolls, the div (and the composer inside it) drifts
+      // upward with it, exposing blank body background beneath it — that's
+      // the gap. Since we already resize the div to the true visible
+      // height above, the page itself never needs to scroll, so we snap it
+      // back to keep the div flush with the top of the visual viewport.
+      window.scrollTo(0, 0);
+    };
+    updateHeight();
+
+    vv.addEventListener('resize', updateHeight);
+    vv.addEventListener('scroll', updateHeight);
+    return () => {
+      vv.removeEventListener('resize', updateHeight);
+      vv.removeEventListener('scroll', updateHeight);
+    };
+  }, []);
+
   // Every send ultimately goes through here instead of calling socket.emit
   // directly. This is what lets us self-heal from the one failure mode the
   // connection-epoch guard (see connectionEpochRef above) can't catch:
@@ -916,7 +953,7 @@ export default function ChatRoom() {
   return (
     <div
       className="bg-zinc-950 flex flex-col overflow-hidden text-zinc-100"
-      style={{ height: '100dvh' }}
+      style={{ height: viewportH ? `${viewportH}px` : '100dvh' }}
     >
       {/* Header */}
       <header className="bg-zinc-900/80 backdrop-blur-xl border-b border-zinc-800 px-5 py-4 flex flex-col gap-3 shrink-0 z-10 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
