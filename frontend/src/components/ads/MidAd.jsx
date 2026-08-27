@@ -14,7 +14,9 @@ export default function MidAd({ refreshSeconds }) {
     if (SNIPPET && !hide) adService.recordImpression(PROVIDER, 'mid');
   }, [hide]);
 
-  if (hide) return null;
+  // No snippet configured yet — render nothing instead of an empty
+  // "SPONSORED" placeholder box, same fix as Top/Bottom/Native/Side.
+  if (hide || !SNIPPET) return null;
 
   return (
     <AdSlot
