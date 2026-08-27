@@ -14,7 +14,9 @@ export default function SideAd({ refreshSeconds }) {
     if (SNIPPET && !hide) adService.recordImpression(PROVIDER, 'side');
   }, [hide]);
 
-  if (hide) return null;
+  // No snippet configured yet — render nothing instead of an empty
+  // placeholder rail, same fix as Top/Bottom/Mid/Native.
+  if (hide || !SNIPPET) return null;
 
   return (
     <div className="hidden xl:flex w-[160px]">
