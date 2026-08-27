@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useIsAdmin } from '../../context/AdminContext';
+import { useIsAdminConfirmed } from '../../context/AdminContext';
 import useKeyboardOpen from '../../hooks/useKeyboardOpen';
 
 const SNIPPET = import.meta.env.VITE_SOCIAL_BAR_SNIPPET || '';
@@ -16,7 +16,20 @@ const SNIPPET = import.meta.env.VITE_SOCIAL_BAR_SNIPPET || '';
 // full-page redirect). Social Bar only shows its own small widget and
 // never redirects the current tab, so it's safe to mount globally.
 export default function SocialBarAd() {
-  const isAdmin = useIsAdmin();
+  // Injection gate uses the CONFIRMED admin value, not the fast-timeout
+  // one from useIsAdmin(). AdminContext force-sets isAdmin=false if the
+  // /admin/session check hasn't resolved within 2.5s (so banner ads
+  // aren't blocked for 20-50s during a Render cold start). That's fine
+  // for a banner — worst case it shows a few seconds late for a real
+  // visitor. It's not fine here: this ad injects a live third-party
+  // <script>, and that network's own code can render a popup/overlay
+  // directly on document.body, outside the container our cleanup
+  // removes. If the 2.5s timeout fires for an admin whose session check
+  // is just slow, the popup can appear and then persist even after the
+  // real check later confirms `true` — which is exactly the "ad still
+  // shows for admin" bug. Waiting for the confirmed value means this
+  // never injects until we genuinely know the visitor isn't an admin.
+  const isAdminConfirmed = useIsAdminConfirmed();
   // The network docks this widget with its own fixed positioning, which
   // (like StickyMobileAd) doesn't track the on-screen keyboard and ends
   // up floating over it or leaving a gap. We can't unmount-and-remount the
@@ -27,7 +40,7 @@ export default function SocialBarAd() {
   const containerRef = useRef(null);
 
   useEffect(() => {
-    if (!SNIPPET || isAdmin !== false) return;
+    if (!SNIPPET || isAdminConfirmed !== false) return;
 
     const container = document.createElement('div');
     container.id = 'sanu-social-bar-ad';
@@ -51,7 +64,7 @@ export default function SocialBarAd() {
       document.body.removeChild(container);
       containerRef.current = null;
     };
-  }, [isAdmin]);
+  }, [isAdminConfirmed]);
 
   useEffect(() => {
     if (containerRef.current) {
