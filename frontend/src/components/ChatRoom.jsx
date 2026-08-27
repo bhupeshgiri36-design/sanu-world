@@ -172,33 +172,39 @@ export default function ChatRoom() {
   }, []);
 
   // --- Keyboard-safe viewport handling --------------------------------
-  // Earlier versions of this component tried to out-compute the browser:
-  // read `visualViewport.height`/`offsetTop` in JS on every resize/scroll
-  // event (plus a focus-triggered polling fallback for WebViews that fire
-  // neither), and manually pin the container with `position: fixed` using
-  // that JS-derived rectangle. In practice that JS value could settle on
-  // a stale/short-lived intermediate reading from mid-way through the
-  // keyboard's open animation (the polling window can end a beat before
-  // the animation actually finishes) and then never get corrected — the
-  // container would freeze at that too-small height, which is exactly
-  // what produced the dead gap between the composer and the keyboard:
-  // the fixed container was genuinely shorter than the space actually
-  // available above the keyboard, and the flex-column content (message
-  // list + composer) simply had nothing to stretch into below it.
+  // This container is sized from `var(--app-height)` (see the style prop
+  // below and index.css), a CSS custom property that useKeyboardOpen.js
+  // keeps glued to `visualViewport.height` in px, continuously, for the
+  // full duration of every keyboard open/close animation — not just
+  // `100dvh` on its own. Relying on `100dvh` plus `<meta viewport
+  // ... interactive-widget=resizes-content>` (see index.html) alone
+  // looked sufficient on paper — the spec says the layout viewport itself
+  // shrinks with the keyboard, so `100dvh` should track it every frame
+  // with no JS involved — but real devices don't reliably honor that:
+  // older Chrome/WebView builds and in-app browsers silently ignore the
+  // meta tag and fall back to leaving the layout viewport (and therefore
+  // `100dvh`) at its pre-keyboard size. When that happens the flex column
+  // is sized to a box taller than what's actually visible, so its last
+  // child (the composer) lands wherever normal flow puts it inside that
+  // oversized box instead of pinned to the bottom of the real, keyboard-
+  // shrunk viewport — which is exactly the floating composer with dead
+  // gaps above and below it that testing turned up. Driving the height
+  // from `visualViewport` directly sidesteps whether `dvh`/resize-content
+  // is supported at all; `100dvh` is kept only as the first-paint
+  // fallback before the hook's effect runs once.
   //
-  // The fix is to stop re-deriving the size in JS at all and let the
-  // browser do it, which is exactly what `100dvh` plus the `<meta
-  // viewport ... interactive-widget=resizes-content>` tag (see
-  // index.html) is for: the layout viewport itself shrinks when the
-  // keyboard opens, and `100dvh` tracks that shrink automatically, every
-  // frame of the animation, with no JS in the loop to fall behind or go
-  // stale. The one real failure mode `position: fixed` was defending
-  // against — the browser also auto-scrolling the *document* to keep the
-  // focused input in view, which would otherwise fight a JS-resized
-  // container — is already handled by the `.chat-room-active` lock in
-  // index.css (`position: fixed; overflow: hidden` on html/body): with
-  // the document itself unable to scroll, there's nothing for that
-  // auto-scroll behavior to move.
+  // The one real failure mode a JS-computed height has to guard against
+  // is settling on a stale mid-animation reading and freezing there —
+  // the hook's rAF loop (started on every resize/scroll/focus change,
+  // not just once) is what prevents that: it keeps re-reading for the
+  // full length of the animation instead of sampling it once.
+  //
+  // Separately, the browser auto-scrolling the *document* to keep the
+  // focused input in view — which would fight this JS-resized container —
+  // is handled by the `.chat-room-active` lock in index.css (`position:
+  // fixed; overflow: hidden` on html/body): with the document itself
+  // unable to scroll, there's nothing for that auto-scroll behavior to
+  // move.
   const keyboardOpen = useKeyboardOpen();
 
   // Keep the latest message pinned above the composer whenever the
@@ -969,7 +975,7 @@ export default function ChatRoom() {
   return (
     <div
       className="bg-zinc-950 flex flex-col overflow-hidden text-zinc-100"
-      style={{ height: '100dvh' }}
+      style={{ height: 'var(--app-height, 100dvh)' }}
     >
       {/* Header */}
       <header className="bg-zinc-900/80 backdrop-blur-xl border-b border-zinc-800 px-5 py-4 flex flex-col gap-3 shrink-0 z-10 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
