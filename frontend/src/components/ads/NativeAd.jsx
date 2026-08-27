@@ -14,7 +14,11 @@ export default function NativeAd({ refreshSeconds }) {
     if (SNIPPET && !hide) adService.recordImpression(PROVIDER, 'native');
   }, [hide]);
 
-  if (hide) return null;
+  // No snippet configured yet — render nothing instead of an empty
+  // "SPONSORED" placeholder box. This one sits inline in the message
+  // feed every 10 messages, so an empty box here reads as a broken
+  // message rather than "an ad is loading".
+  if (hide || !SNIPPET) return null;
 
   // Native banners self-size to fill their container — they aren't a
   // fixed pixel creative like the top/bottom/side banners. AdSlot only
