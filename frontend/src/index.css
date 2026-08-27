@@ -19,6 +19,16 @@ body,
   height: 100%;
 }
 
+/* Live viewport height in px, kept in sync by useKeyboardOpen.js from
+   `visualViewport.height` on every resize/scroll/focus change. ChatRoom
+   sizes its root container from this instead of `100dvh` alone — see the
+   comment at the top of useKeyboardOpen.js for why `dvh` can't be
+   trusted alone here. The `100dvh` fallback only matters for the first
+   paint, before the hook's effect has run once. */
+:root {
+  --app-height: 100dvh;
+}
+
 body {
   font-family: var(--font-sans);
 }
