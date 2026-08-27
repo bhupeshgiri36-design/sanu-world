@@ -83,6 +83,21 @@ export default function useKeyboardOpen() {
     // never get corrected (that's the "freeze at a stale height" failure
     // mode described above) — polling across frames means the var keeps
     // catching up until the animation actually finishes.
+    // In-app browsers (WhatsApp, Telegram, Instagram, etc.) sometimes
+    // report a too-small visualViewport height on the very first read —
+    // their own chrome (top toolbar, "shared media" bar) is still
+    // mid-animation-in and hasn't settled yet — and then never fire a
+    // resize event once it does settle. Without this, --app-height gets
+    // locked to that smaller, stale number forever: the flex column
+    // renders shorter than the screen actually is, the message list gets
+    // squeezed toward zero, and the composer ends up sitting right up
+    // against whatever's above it with a dead gap of native background
+    // below — the "lifted composer" bug. Re-checking on a short timer for
+    // the first couple of seconds after mount, independent of any
+    // resize/focus event, catches that late settle.
+    const settleTimer = setInterval(check, 200);
+    const stopSettleTimer = setTimeout(() => clearInterval(settleTimer), 2000);
+
     let rafId = null;
     const trackDuringAnimation = () => {
       if (!vv) return;
@@ -144,6 +159,8 @@ export default function useKeyboardOpen() {
     document.addEventListener('focusout', onFocusChange);
 
     return () => {
+      clearInterval(settleTimer);
+      clearTimeout(stopSettleTimer);
       target.removeEventListener('resize', onResize);
       if (vv) {
         vv.removeEventListener('scroll', onResize);
