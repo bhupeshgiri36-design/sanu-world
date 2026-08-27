@@ -1,8 +1,22 @@
 @import "tailwindcss";
-
 @theme {
   --font-serif: "Playfair Display", serif;
   --font-sans: "Plus Jakarta Sans", sans-serif;
+}
+
+/* Matches the app's own bg-zinc-950 (see ChatRoom.jsx and friends). The
+   browser paints this instantly, with no JavaScript involved, so it
+   can't lose the race against the on-screen keyboard's open/close
+   animation the way a JS-driven container resize can. That animation
+   briefly exposes whatever sits behind the app before React's own
+   resize handling catches up — a fraction of a second, but on a plain
+   white background it reads as a jarring flash. With the same dark
+   color underneath everywhere, that same brief gap is invisible. */
+html,
+body,
+#root {
+  background-color: #09090b;
+  height: 100%;
 }
 
 body {
@@ -12,7 +26,6 @@ body {
 /* Applied only while ChatRoom is mounted (see ChatRoom.jsx, which adds
    this class to <html>/<body> on mount and removes it on unmount) — NOT
    global, because Landing/Goodbye/JoinRoom rely on normal page scrolling.
-
    Locks the page itself from scrolling/panning independently of the chat
    layout. Without this, the browser's native "scroll focused input into
    view" behavior moves the whole document at the same time our
