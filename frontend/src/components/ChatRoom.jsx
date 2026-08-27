@@ -261,7 +261,46 @@ export default function ChatRoom() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keyboardOpen]);
 
-  // Every send ultimately goes through here instead of calling socket.emit
+  // Guests who join a room where Sanu is ALREADY playing a song see the
+  // whole chat shell — header, full player card, message list, composer —
+  // mount in a single browser paint, at the same moment the <audio>
+  // element kicks off loading the remote file. That's different from the
+  // host's own experience: when Sanu picks a track, the player grows in
+  // over several separate renders (search box -> track selected -> player
+  // appears), each one a small layout change. A guest's first paint has
+  // to lay out the whole thing — including the header's backdrop-blur —
+  // in one shot, and on some Android Chrome builds that settles into a
+  // visibly squished player. Any later DOM change (like clicking "Hide
+  // Player") forces a fresh layout pass and instantly corrects it, which
+  // is why toggling it by hand "fixes" it. Rather than rely on the guest
+  // to discover that themselves, do the same corrective toggle
+  // automatically, once, right after the first paint that actually has a
+  // track to show — invisible to them, since it happens within a couple
+  // of animation frames, well before they'd consciously register the
+  // player's presence.
+  const hasSettledInitialMusicLayoutRef = useRef(false);
+  const raf2Ref = useRef(null);
+  useEffect(() => {
+    if (hasSettledInitialMusicLayoutRef.current) return;
+    if (!room?.music?.streamUrl) return;
+    hasSettledInitialMusicLayoutRef.current = true;
+    // Nothing to settle if the player isn't even showing (e.g. the host
+    // had already hidden it before this guest joined and that state
+    // somehow carried over) — only force a reflow of something that's
+    // actually visible.
+    if (!showNowPlaying) return;
+    const raf1 = requestAnimationFrame(() => {
+      setShowNowPlaying(false);
+      raf2Ref.current = requestAnimationFrame(() => {
+        setShowNowPlaying(true);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2Ref.current) cancelAnimationFrame(raf2Ref.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.music?.streamUrl]);
   // directly. This is what lets us self-heal from the one failure mode the
   // connection-epoch guard (see connectionEpochRef above) can't catch:
   // isReadyRef can be legitimately true — a valid, current join-room ack
