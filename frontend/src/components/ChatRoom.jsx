@@ -171,95 +171,42 @@ export default function ChatRoom() {
     };
   }, []);
 
-  // --- Keyboard-safe viewport tracking -------------------------------
-  // `100dvh` and a plain `height: visualViewport.height` state (the old
-  // approach) both fail on real devices for the same underlying reason:
-  // the container is a normal, statically-positioned block sitting in
-  // document flow. When the on-screen keyboard opens, the browser (or an
-  // in-app WebView like Telegram's) also tries to scroll the *document*
-  // itself to keep the focused input in view. If that auto-scroll happens
-  // even a moment after our own `window.scrollTo(0, 0)` correction, the
-  // container — sized correctly, but no longer pinned to the top of the
-  // screen — drifts upward relative to what's actually visible, and the
-  // space below it opens up as a blank gap between the composer and the
-  // keyboard.
+  // --- Keyboard-safe viewport handling --------------------------------
+  // Earlier versions of this component tried to out-compute the browser:
+  // read `visualViewport.height`/`offsetTop` in JS on every resize/scroll
+  // event (plus a focus-triggered polling fallback for WebViews that fire
+  // neither), and manually pin the container with `position: fixed` using
+  // that JS-derived rectangle. In practice that JS value could settle on
+  // a stale/short-lived intermediate reading from mid-way through the
+  // keyboard's open animation (the polling window can end a beat before
+  // the animation actually finishes) and then never get corrected — the
+  // container would freeze at that too-small height, which is exactly
+  // what produced the dead gap between the composer and the keyboard:
+  // the fixed container was genuinely shorter than the space actually
+  // available above the keyboard, and the flex-column content (message
+  // list + composer) simply had nothing to stretch into below it.
   //
-  // The fix is to stop trying to win that race with scroll correction and
-  // instead pin the container with `position: fixed`, anchored to
-  // `visualViewport.offsetTop`. A fixed element's position is anchored to
-  // the layout viewport, not to document scroll position, so no amount of
-  // document scrolling — however late, however slow the WebView is to
-  // settle — can make it drift. We track `{ top, height }` together so a
-  // single state update captures the whole visible rectangle at once.
-  const [viewportRect, setViewportRect] = useState({ top: 0, height: null });
+  // The fix is to stop re-deriving the size in JS at all and let the
+  // browser do it, which is exactly what `100dvh` plus the `<meta
+  // viewport ... interactive-widget=resizes-content>` tag (see
+  // index.html) is for: the layout viewport itself shrinks when the
+  // keyboard opens, and `100dvh` tracks that shrink automatically, every
+  // frame of the animation, with no JS in the loop to fall behind or go
+  // stale. The one real failure mode `position: fixed` was defending
+  // against — the browser also auto-scrolling the *document* to keep the
+  // focused input in view, which would otherwise fight a JS-resized
+  // container — is already handled by the `.chat-room-active` lock in
+  // index.css (`position: fixed; overflow: hidden` on html/body): with
+  // the document itself unable to scroll, there's nothing for that
+  // auto-scroll behavior to move.
   const keyboardOpen = useKeyboardOpen();
 
+  // Keep the latest message pinned above the composer whenever the
+  // keyboard opens/closes (dvh handles the resize itself; this just
+  // keeps the scroll position sensible across that resize).
   useEffect(() => {
-    const vv = window.visualViewport;
-
-    const updateRect = () => {
-      if (vv) {
-        setViewportRect({ top: vv.offsetTop, height: vv.height });
-      } else {
-        setViewportRect({ top: 0, height: window.innerHeight });
-      }
-      // Whatever the keyboard's exact height ends up being, make sure the
-      // most recent message is still the thing sitting right above the
-      // composer once the resize settles, instead of leaving the message
-      // list scrolled to wherever it happened to be before the keyboard
-      // opened. (No more window.scrollTo(0, 0) here — with the container
-      // pinned via position: fixed, document scroll position no longer
-      // matters for layout.)
-      scrollToBottom();
-    };
-    updateRect();
-
-    // Primary signal: VisualViewport resize/scroll. Works in real Chrome.
-    if (vv) {
-      vv.addEventListener('resize', updateRect);
-      vv.addEventListener('scroll', updateRect);
-    }
-    // Secondary signal: plain window resize. Some embedded/in-app
-    // WebViews (Telegram's Android in-app browser being the one we've
-    // actually seen this on) don't fire VisualViewport events on keyboard
-    // open at all, but still fire a window resize.
-    window.addEventListener('resize', updateRect);
-
-    // Tertiary signal: short polling burst right after the message input
-    // gains or loses focus. In some in-app browsers, NEITHER of the above
-    // events fires when the keyboard opens — the viewport height/offset
-    // only changes a moment later with nothing to listen for. Polling for
-    // ~1.5s after every focus change catches that resize whenever it
-    // actually happens, without polling all the time and draining battery.
-    let pollTimer = null;
-    const pollFor = (ms) => {
-      const stopAt = Date.now() + ms;
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(() => {
-        updateRect();
-        if (Date.now() > stopAt) {
-          clearInterval(pollTimer);
-          pollTimer = null;
-        }
-      }, 120);
-    };
-    const onFocusChange = (e) => {
-      if (e.target?.name === 'chat-message') pollFor(1500);
-    };
-    document.addEventListener('focusin', onFocusChange);
-    document.addEventListener('focusout', onFocusChange);
-
-    return () => {
-      if (vv) {
-        vv.removeEventListener('resize', updateRect);
-        vv.removeEventListener('scroll', updateRect);
-      }
-      window.removeEventListener('resize', updateRect);
-      document.removeEventListener('focusin', onFocusChange);
-      document.removeEventListener('focusout', onFocusChange);
-      if (pollTimer) clearInterval(pollTimer);
-    };
-  }, []);
+    scrollToBottom();
+  }, [keyboardOpen]);
 
   // Every send ultimately goes through here instead of calling socket.emit
   // directly. This is what lets us self-heal from the one failure mode the
@@ -1022,11 +969,7 @@ export default function ChatRoom() {
   return (
     <div
       className="bg-zinc-950 flex flex-col overflow-hidden text-zinc-100"
-      style={
-        viewportRect.height
-          ? { position: 'fixed', top: viewportRect.top, left: 0, width: '100%', height: viewportRect.height }
-          : { position: 'relative', height: '100dvh' }
-      }
+      style={{ height: '100dvh' }}
     >
       {/* Header */}
       <header className="bg-zinc-900/80 backdrop-blur-xl border-b border-zinc-800 px-5 py-4 flex flex-col gap-3 shrink-0 z-10 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
