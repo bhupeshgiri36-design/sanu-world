@@ -11,6 +11,7 @@ import SideAd from './ads/SideAd';
 import ChatBottomAd from './ads/ChatBottomAd';
 import NativeAd from './ads/NativeAd';
 import SkyscraperAd from './ads/SkyscraperAd';
+import SocialBarAd from './ads/SocialBarAd';
 import MusicSearch from './music/MusicSearch';
 import MusicPlayer from './music/MusicPlayer';
 import { adminFetch, uploadMedia } from '../lib/api';
@@ -212,6 +213,52 @@ export default function ChatRoom() {
   // keeps the scroll position sensible across that resize).
   useEffect(() => {
     scrollToBottom();
+  }, [keyboardOpen]);
+
+  // The header (music search box / now-playing player card) sits above
+  // the message list with `shrink-0` — it never gives up space, by
+  // design, so the player doesn't jitter while messages scroll. That's
+  // fine when the keyboard is closed, but the keyboard eats a big chunk
+  // of the same fixed-height column from the other end (see
+  // useKeyboardOpen.js), and a full player card (artwork, scrubber,
+  // volume slider) plus an open keyboard can easily add up to more than
+  // the available height. When that happens the message list — the only
+  // flexible part of the column — gets squeezed to near-zero, and the
+  // composer ends up sitting right up against the player with no
+  // breathing room, which is what reads as the composer being "lifted"
+  // instead of sitting at a normal, relaxed spot above the keyboard.
+  //
+  // Same fix already applied to the ads below the message list: give the
+  // space back automatically while the keyboard is up. This only ever
+  // auto-collapses state that was open when typing started, and only
+  // ever auto-restores state that *this effect* collapsed — if the
+  // person had already hidden the player or the search box themselves
+  // before the keyboard opened, opening the keyboard shouldn't silently
+  // change that, and closing the keyboard shouldn't override a manual
+  // toggle they made while it was open.
+  const autoCollapsedPlayerRef = useRef(false);
+  const autoCollapsedSearchRef = useRef(false);
+  useEffect(() => {
+    if (keyboardOpen) {
+      if (showNowPlaying) {
+        autoCollapsedPlayerRef.current = true;
+        setShowNowPlaying(false);
+      }
+      if (showMusicSearch) {
+        autoCollapsedSearchRef.current = true;
+        setShowMusicSearch(false);
+      }
+    } else {
+      if (autoCollapsedPlayerRef.current) {
+        autoCollapsedPlayerRef.current = false;
+        setShowNowPlaying(true);
+      }
+      if (autoCollapsedSearchRef.current) {
+        autoCollapsedSearchRef.current = false;
+        setShowMusicSearch(true);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keyboardOpen]);
 
   // Every send ultimately goes through here instead of calling socket.emit
@@ -1434,6 +1481,16 @@ export default function ChatRoom() {
         {/* Side rail ad — only visible on wide desktop screens (SideAd is
             "hidden xl:flex" internally) and only for real visitors, so it
             never shows up on mobile and never shows for the host/admin. */}
+        {/* App.jsx's GlobalAds deliberately does NOT mount SocialBarAd on
+            /room/:code paths — it only knows about the /admin backend
+            session, not this room's per-visitor `isHost` flag, so it
+            can't tell the room's own host apart from a guest. This is
+            the host-aware replacement: same `!isHost && isAdmin === false`
+            gate as every other ad on this page, so Sanu never gets the
+            popup/social-bar script injected in their own room, admin
+            session or not. */}
+        {!isHost && isAdmin === false && <SocialBarAd />}
+
         {!isHost && isAdmin === false && <SideAd refreshSeconds={60} />}
 
         {/* Sidebar */}
