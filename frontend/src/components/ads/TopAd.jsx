@@ -14,7 +14,11 @@ export default function TopAd({ refreshSeconds }) {
     if (SNIPPET && !hide) adService.recordImpression(PROVIDER, 'top');
   }, [hide]);
 
-  if (hide) return null;
+  // No snippet configured yet — render nothing instead of an empty
+  // "ADVERTISEMENT" placeholder box. Leaving the box mounted with no
+  // creative is exactly what produces a dead rectangular gap in the
+  // layout (this is the top-of-chat / top-of-join-form gap).
+  if (hide || !SNIPPET) return null;
 
   return (
     <AdSlot
