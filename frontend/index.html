@@ -3,6 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+    <!-- Matches the app's own bg-zinc-950. Painted by the browser
+         immediately, with no JavaScript involved, so it can't lose the
+         race against the on-screen keyboard's open/close animation the
+         way a JS-driven container resize can. Without this, that brief
+         timing gap flashes the browser's default white background;
+         with it, the exact same gap is invisible because it's the same
+         dark color as everything around it. -->
+    <meta name="theme-color" content="#09090b" />
+    <style>
+      html {
+        background-color: #09090b;
+      }
+    </style>
     <title>SANU WORLD</title>
     <meta name="description" content="A world of seamless connections." />
     <meta property="og:title" content="SANU WORLD" />
